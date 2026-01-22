@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Maze Game - Hand Gesture Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #141e30 0%, #243b55 100%); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            pointer-events: none; 
+            max-width: 350px;
+            padding: 20px;
+        }
+        
+        #ui h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hint { 
+            font-size: 0.85em; 
+            opacity: 0.8; 
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        #stats {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* Game Status Panel */
+        #status-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            padding: 20px;
+            pointer-events: none;
+        }
+        
+        #status-panel h3 {
+            margin: 0 0 15px 0;
+            color: #f093fb;
+            font-size: 1.3em;
+        }
+        
+        .status-item {
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        
+        .status-label {
+            color: #ccc;
+            font-size: 0.9em;
+        }
+        
+        .status-value {
+            color: #f093fb;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+        
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 15px 20px;
+            pointer-events: all;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+        
+        /* Video Container */
+        #video-container { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transform: scaleX(-1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        /* Gesture Indicator */
+        #gesture-indicator {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            padding: 15px 20px;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        #gesture-indicator .gesture-name {
+            font-size: 1em;
+            font-weight: bold;
+            color: #f093fb;
+            margin-bottom: 5px;
+        }
+        
+        #gesture-indicator .gesture-icon {
+            font-size: 1.5em;
+        }
+
+        /* Win Screen */
+        #win-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            padding: 40px;
+            text-align: center;
+            pointer-events: all;
+            display: none;
+        }
+
+        #win-screen h2 {
+            font-size: 2.5em;
+            color: #f093fb;
+            margin-bottom: 20px;
+        }
+
+        #win-screen p {
+            font-size: 1.2em;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .minimap {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui" class="glass">
+        <h1>🎮 3D Maze Game</h1>
+        <p class="hint">
+            👋 <strong>Tilt Left/Right:</strong> Turn<br>
+            ✊ <strong>Fist:</strong> Move Forward<br>
+            ✌️ <strong>Peace:</strong> Move Backward<br>
+            🤏 <strong>Pinch:</strong> Sprint<br>
+            👆 <strong>Hand Position:</strong> Direction
+        </p>
+        <div id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Moves: <span id="moves">0</span></div>
+        </div>
+    </div>
+
+    <div id="status-panel" class="glass">
+        <h3>🏆 Mission</h3>
+        <div class="status-item">
+            <div class="status-label">Time</div>
+            <div class="status-value" id="timer">0:00</div>
+        </div>
+        <div class="status-item">
+            <div class="status-label">Coins Collected</div>
+            <div class="status-value"><span id="coins">0</span>/5</div>
+        </div>
+        <div class="status-item">
+            <div class="status-label">Distance to Goal</div>
+            <div class="status-value" id="distance">--</div>
+        </div>
+    </div>
+
+    <canvas id="minimap" class="minimap glass"></canvas>
+
+    <div id="control-panel" class="glass">
+        <button class="btn" onclick="generateNewMaze()">🔄 New Maze</button>
+        <button class="btn" onclick="toggleCamera()">📷 Switch View</button>
+        <button class="btn" onclick="showHint()">💡 Hint</button>
+    </div>
+
+    <div id="gesture-indicator" class="glass">
+        <div class="gesture-icon" id="gesture-icon">👋</div>
+        <div class="gesture-name" id="gesture-name">Ready</div>
+    </div>
+
+    <div id="win-screen" class="glass">
+        <h2>🎉 You Win!</h2>
+        <p>Time: <span id="final-time">0:00</span></p>
+        <p>Moves: <span id="final-moves">0</span></p>
+        <button class="btn" onclick="generateNewMaze()">Play Again</button>
+    </div>
+
+    <div id="video-container">
+        <video id="input-video"></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        /**
+         * 1. CONFIGURATION & STATE
+         */
+        const MAZE_SIZE = 15;
+        const CELL_SIZE = 4;
+        let playerX = 1, playerZ = 1;
+        let playerAngle = 0;
+        let playerSpeed = 0;
+        let moveCount = 0;
+        let coinsCollected = 0;
+        let startTime = Date.now();
+        let gameWon = false;
+        let cameraMode = 'first'; // 'first' or 'third'
+        
+        let handX = 0, handY = 0;
+        let isFist = false, isPeace = false, isPinch = false;
+        let lastGestureTime = 0;
+        let lastMoveCounted = false;
+        
+        // Gesture smoothing for better accuracy
+        let smoothedHandX = 0, smoothedHandY = 0;
+        let gestureStability = { fist: 0, peace: 0, pinch: 0 };
+        
+        // FPS tracking
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+
+        // UI Elements
+        const fpsDisplay = document.getElementById('fps');
+        const movesDisplay = document.getElementById('moves');
+        const timerDisplay = document.getElementById('timer');
+        const coinsDisplay = document.getElementById('coins');
+        const distanceDisplay = document.getElementById('distance');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+
+        /**
+         * 2. THREE.JS SETUP
+         */
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 1, 50);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
+        scene.add(directionalLight);
+
+        /**
+         * 3. MAZE GENERATION
+         */
+        let maze = [];
+        let walls = [];
+        let coins = [];
+        let goalMarker = null;
+
+        function generateMaze() {
+            // Initialize maze with walls
+            maze = Array(MAZE_SIZE).fill().map(() => Array(MAZE_SIZE).fill(1));
+            
+            // Recursive backtracking algorithm
+            function carve(x, z) {
+                maze[x][z] = 0;
+                
+                const directions = [
+                    [0, -2], [2, 0], [0, 2], [-2, 0]
+                ].sort(() => Math.random() - 0.5);
+                
+                for (const [dx, dz] of directions) {
+                    const nx = x + dx;
+                    const nz = z + dz;
+                    
+                    if (nx > 0 && nx < MAZE_SIZE - 1 && nz > 0 && nz < MAZE_SIZE - 1 && maze[nx][nz] === 1) {
+                        maze[x + dx/2][z + dz/2] = 0;
+                        carve(nx, nz);
+                    }
+                }
+            }
+            
+            carve(1, 1);
+            maze[MAZE_SIZE - 2][MAZE_SIZE - 2] = 0; // Ensure goal is accessible
+        }
+
+        function buildMazeWalls() {
+            // Clear old walls
+            walls.forEach(wall => scene.remove(wall));
+            walls = [];
+
+            const wallGeometry = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
+            const wallMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x8b7355,
+                roughness: 0.8
+            });
+
+            for (let x = 0; x < MAZE_SIZE; x++) {
+                for (let z = 0; z < MAZE_SIZE; z++) {
+                    if (maze[x][z] === 1) {
+                        const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+                        wall.position.set(x * CELL_SIZE, 1.5, z * CELL_SIZE);
+                        wall.castShadow = true;
+                        wall.receiveShadow = true;
+                        scene.add(wall);
+                        walls.push(wall);
+                    }
+                }
+            }
+
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x90ee90 });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Goal
+            if (goalMarker) scene.remove(goalMarker);
+            const goalGeometry = new THREE.CylinderGeometry(1, 1, 4, 32);
+            const goalMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 0.5
+            });
+            goalMarker = new THREE.Mesh(goalGeometry, goalMaterial);
+            goalMarker.position.set((MAZE_SIZE - 2) * CELL_SIZE, 2, (MAZE_SIZE - 2) * CELL_SIZE);
+            scene.add(goalMarker);
+
+            // Create coins
+            coins.forEach(coin => scene.remove(coin.mesh));
+            coins = [];
+            for (let i = 0; i < 5; i++) {
+                let cx, cz;
+                do {
+                    cx = Math.floor(Math.random() * (MAZE_SIZE - 2)) + 1;
+                    cz = Math.floor(Math.random() * (MAZE_SIZE - 2)) + 1;
+                } while (maze[cx][cz] === 1 || (cx === 1 && cz === 1) || (cx === MAZE_SIZE - 2 && cz === MAZE_SIZE - 2));
+                
+                const coinGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 32);
+                const coinMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0xffd700,
+                    emissive: 0xffd700,
+                    emissiveIntensity: 0.3,
+                    metalness: 0.8
+                });
+                const coinMesh = new THREE.Mesh(coinGeometry, coinMaterial);
+                coinMesh.position.set(cx * CELL_SIZE, 1, cz * CELL_SIZE);
+                coinMesh.rotation.x = Math.PI / 2;
+                scene.add(coinMesh);
+                coins.push({ mesh: coinMesh, collected: false, x: cx, z: cz });
+            }
+        }
+
+        /**
+         * 4. MINIMAP
+         */
+        const minimapCanvas = document.getElementById('minimap');
+        const minimapCtx = minimapCanvas.getContext('2d');
+        minimapCanvas.width = 200;
+        minimapCanvas.height = 200;
+
+        function drawMinimap() {
+            const cellSize = minimapCanvas.width / MAZE_SIZE;
+            minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            // Draw maze (swap x and z to match 3D orientation)
+            for (let x = 0; x < MAZE_SIZE; x++) {
+                for (let z = 0; z < MAZE_SIZE; z++) {
+                    if (maze[x][z] === 1) {
+                        minimapCtx.fillStyle = '#8b7355';
+                    } else {
+                        minimapCtx.fillStyle = '#90ee90';
+                    }
+                    minimapCtx.fillRect(z * cellSize, x * cellSize, cellSize, cellSize);
+                }
+            }
+
+            // Draw coins
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    minimapCtx.fillStyle = '#ffd700';
+                    minimapCtx.beginPath();
+                    minimapCtx.arc((coin.z + 0.5) * cellSize, (coin.x + 0.5) * cellSize, cellSize / 3, 0, Math.PI * 2);
+                    minimapCtx.fill();
+                }
+            });
+
+            // Draw goal
+            minimapCtx.fillStyle = '#ff0000';
+            minimapCtx.fillRect((MAZE_SIZE - 2) * cellSize, (MAZE_SIZE - 2) * cellSize, cellSize, cellSize);
+
+            // Draw player
+            const px = (playerZ / CELL_SIZE) * cellSize;
+            const pz = (playerX / CELL_SIZE) * cellSize;
+            minimapCtx.fillStyle = '#0000ff';
+            minimapCtx.beginPath();
+            minimapCtx.arc(px, pz, cellSize / 2, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            // Draw player direction
+            minimapCtx.strokeStyle = '#0000ff';
+            minimapCtx.lineWidth = 2;
+            minimapCtx.beginPath();
+            minimapCtx.moveTo(px, pz);
+            minimapCtx.lineTo(px + Math.cos(playerAngle) * cellSize, pz + Math.sin(playerAngle) * cellSize);
+            minimapCtx.stroke();
+        }
+
+        /**
+         * 5. PLAYER CONTROL
+         */
+        function updatePlayer() {
+            const oldX = playerX;
+            const oldZ = playerZ;
+
+            // Turn based on hand position (only when NOT moving forward/backward)
+            if (!isFist && !isPeace && Math.abs(handX) > 0.3) {
+                playerAngle -= handX * 0.05; // Negative to match mirrored video
+            }
+
+            // Movement
+            if (isFist) {
+                const targetSpeed = isPinch ? 0.15 : 0.08; // Sprint with pinch
+                playerSpeed = playerSpeed * 0.8 + targetSpeed * 0.2; // Smooth acceleration
+                if (!lastMoveCounted) {
+                    moveCount++;
+                    movesDisplay.textContent = moveCount;
+                    lastMoveCounted = true;
+                }
+            } else if (isPeace) {
+                playerSpeed = -0.05; // Move backward
+                lastMoveCounted = false;
+            } else {
+                playerSpeed *= 0.9; // Deceleration
+                lastMoveCounted = false;
+            }
+
+            // Calculate new position
+            const newX = playerX + Math.sin(playerAngle) * playerSpeed;
+            const newZ = playerZ + Math.cos(playerAngle) * playerSpeed;
+
+            // Collision detection
+            const gridX = Math.floor(newX / CELL_SIZE);
+            const gridZ = Math.floor(newZ / CELL_SIZE);
+
+            if (gridX >= 0 && gridX < MAZE_SIZE && gridZ >= 0 && gridZ < MAZE_SIZE && maze[gridX][gridZ] === 0) {
+                playerX = newX;
+                playerZ = newZ;
+            }
+
+            // Collect coins
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    const dist = Math.sqrt(
+                        Math.pow(playerX - coin.x * CELL_SIZE, 2) + 
+                        Math.pow(playerZ - coin.z * CELL_SIZE, 2)
+                    );
+                    if (dist < 2) {
+                        coin.collected = true;
+                        scene.remove(coin.mesh);
+                        coinsCollected++;
+                        coinsDisplay.textContent = coinsCollected;
+                    }
+                }
+            });
+
+            // Check win condition
+            const goalDist = Math.sqrt(
+                Math.pow(playerX - (MAZE_SIZE - 2) * CELL_SIZE, 2) + 
+                Math.pow(playerZ - (MAZE_SIZE - 2) * CELL_SIZE, 2)
+            );
+            
+            distanceDisplay.textContent = Math.floor(goalDist) + 'm';
+
+            if (goalDist < 3 && !gameWon) {
+                winGame();
+            }
+
+            // Update camera
+            if (cameraMode === 'first') {
+                camera.position.set(playerX, 2, playerZ);
+                camera.rotation.y = -playerAngle; // Camera faces movement direction
+            } else {
+                camera.position.set(
+                    playerX - Math.sin(playerAngle) * 10,
+                    8,
+                    playerZ - Math.cos(playerAngle) * 10
+                );
+                camera.lookAt(playerX, 2, playerZ);
+            }
+        }
+
+        /**
+         * 6. HAND TRACKING
+         */
+        const videoElement = document.getElementById('input-video');
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Hand position smoothing
+                const rawHandX = (landmarks[8].x - 0.5) * 2;
+                const rawHandY = (landmarks[8].y - 0.5) * 2;
+                smoothedHandX = smoothedHandX * 0.65 + rawHandX * 0.35;
+                smoothedHandY = smoothedHandY * 0.65 + rawHandY * 0.35;
+                handX = smoothedHandX;
+                handY = smoothedHandY;
+
+                // Improved fist detection
+                const palmCenter = landmarks[9];
+                const fingersToCheck = [8, 12, 16, 20];
+                const fingerDistances = fingersToCheck.map(tip => 
+                    Math.sqrt(Math.pow(landmarks[tip].x - palmCenter.x, 2) + Math.pow(landmarks[tip].y - palmCenter.y, 2))
+                );
+                const avgFingerDist = fingerDistances.reduce((a, b) => a + b) / 4;
+                const fistDetected = avgFingerDist < 0.12;
+                gestureStability.fist = fistDetected ? Math.min(gestureStability.fist + 1, 5) : Math.max(gestureStability.fist - 1, 0);
+                isFist = gestureStability.fist >= 3;
+
+                // Peace sign detection
+                const palm = landmarks[9];
+                const indexExtended = landmarks[8].y < palm.y - 0.05;
+                const middleExtended = landmarks[12].y < palm.y - 0.05;
+                const ringFolded = landmarks[16].y > palm.y - 0.02;
+                const pinkyFolded = landmarks[20].y > palm.y - 0.02;
+                const fingerSpacing = Math.sqrt(
+                    Math.pow(landmarks[8].x - landmarks[12].x, 2) + 
+                    Math.pow(landmarks[8].y - landmarks[12].y, 2)
+                );
+                
+                isPeace = indexExtended && middleExtended && ringFolded && pinkyFolded && fingerSpacing > 0.03 && !isFist;
+
+                // Pinch detection
+                const pinchDist = Math.sqrt(
+                    Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
+                    Math.pow(landmarks[4].y - landmarks[8].y, 2)
+                );
+                isPinch = pinchDist < 0.05;
+                
+                updateGestureIndicator();
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        /**
+         * 7. GAME FUNCTIONS
+         */
+        function generateNewMaze() {
+            generateMaze();
+            buildMazeWalls();
+            playerX = 1 * CELL_SIZE;
+            playerZ = 1 * CELL_SIZE;
+            playerAngle = 0;
+            moveCount = 0;
+            coinsCollected = 0;
+            startTime = Date.now();
+            gameWon = false;
+            movesDisplay.textContent = '0';
+            coinsDisplay.textContent = '0';
+            document.getElementById('win-screen').style.display = 'none';
+        }
+
+        function toggleCamera() {
+            cameraMode = cameraMode === 'first' ? 'third' : 'first';
+        }
+
+        function showHint() {
+            // Briefly show path to goal
+            const hintDuration = 2000;
+            const hintLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(playerX, 1, playerZ),
+                    new THREE.Vector3((MAZE_SIZE - 2) * CELL_SIZE, 1, (MAZE_SIZE - 2) * CELL_SIZE)
+                ]),
+                new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 3 })
+            );
+            scene.add(hintLine);
+            setTimeout(() => scene.remove(hintLine), hintDuration);
+        }
+
+        function winGame() {
+            gameWon = true;
+            const endTime = Date.now();
+            const totalTime = Math.floor((endTime - startTime) / 1000);
+            const minutes = Math.floor(totalTime / 60);
+            const seconds = totalTime % 60;
+            
+            document.getElementById('final-time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('final-moves').textContent = moveCount;
+            document.getElementById('win-screen').style.display = 'block';
+        }
+
+        function updateGestureIndicator() {
+            if (isFist) {
+                gestureIcon.textContent = isPinch ? '🏃' : '✊';
+                gestureName.textContent = isPinch ? 'Sprinting' : 'Moving Forward';
+            } else if (isPeace) {
+                gestureIcon.textContent = '✌️';
+                gestureName.textContent = 'Moving Back';
+            } else {
+                gestureIcon.textContent = '👋';
+                gestureName.textContent = 'Steering';
+            }
+        }
+
+        /**
+         * 8. ANIMATION LOOP
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsDisplay.textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            if (!gameWon) {
+                updatePlayer();
+                
+                // Update timer
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                // Animate goal marker
+                goalMarker.rotation.y += 0.02;
+                goalMarker.position.y = 2 + Math.sin(Date.now() * 0.002) * 0.5;
+
+                // Animate coins
+                coins.forEach(coin => {
+                    if (!coin.collected) {
+                        coin.mesh.rotation.z += 0.05;
+                        coin.mesh.position.y = 1 + Math.sin(Date.now() * 0.003 + coin.x) * 0.3;
+                    }
+                });
+            }
+
+            drawMinimap();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize
+        generateNewMaze();
+        animate();
+    </script>
+</body>
+</html>

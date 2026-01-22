@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Solar System - Hand Gesture Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #000; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            pointer-events: none; 
+            max-width: 350px;
+            padding: 20px;
+        }
+        
+        #ui h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hint { 
+            font-size: 0.85em; 
+            opacity: 0.8; 
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        #stats {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* Planet Info Panel */
+        #planet-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            padding: 20px;
+            pointer-events: none;
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        
+        #planet-info h3 {
+            margin: 0 0 10px 0;
+            color: #4facfe;
+            font-size: 1.3em;
+        }
+        
+        #planet-info p {
+            margin: 5px 0;
+            font-size: 0.9em;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        
+        #planet-info .fact {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 15px 20px;
+            pointer-events: all;
+        }
+        
+        .control-group {
+            margin-bottom: 10px;
+        }
+        
+        .control-group label {
+            display: block;
+            color: #ccc;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            border: none;
+        }
+        
+        .value-display {
+            color: #4facfe;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Video Container */
+        #video-container { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transform: scaleX(-1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        /* Gesture Indicator */
+        #gesture-indicator {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            padding: 15px 20px;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        #gesture-indicator .gesture-name {
+            font-size: 1em;
+            font-weight: bold;
+            color: #4facfe;
+            margin-bottom: 5px;
+        }
+        
+        #gesture-indicator .gesture-icon {
+            font-size: 1.5em;
+        }
+        
+        #planet-info::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #planet-info::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        #planet-info::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui" class="glass">
+        <h1>🪐 Interactive Solar System</h1>
+        <p class="hint">
+            👋 <strong>Open Palm:</strong> Zoom Out<br>
+            ✊ <strong>Fist:</strong> Zoom In<br>
+            ✌️ <strong>Peace:</strong> Pause/Resume<br>
+            🤏 <strong>Pinch:</strong> Speed Control<br>
+            👆 <strong>Move Hand:</strong> Rotate View
+        </p>
+        <div id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Zoom: <span id="zoom-level">100</span>%</div>
+            <div>Speed: <span id="speed-display">1.0</span>x</div>
+        </div>
+    </div>
+
+    <div id="planet-info" class="glass">
+        <h3 id="planet-name">☀️ The Sun</h3>
+        <p id="planet-description">
+            The Sun is the star at the center of our Solar System. It accounts for about 99.86% of the total mass of the Solar System.
+        </p>
+        <p><span class="fact">Type:</span> <span id="planet-type">G-type Main-sequence Star</span></p>
+        <p><span class="fact">Diameter:</span> <span id="planet-diameter">1,391,000 km</span></p>
+        <p><span class="fact">Temperature:</span> <span id="planet-temp">5,500°C (surface)</span></p>
+        <p><span class="fact">Age:</span> <span id="planet-age">4.6 billion years</span></p>
+    </div>
+
+    <div id="control-panel" class="glass">
+        <div class="control-group">
+            <label>Orbit Speed: <span class="value-display" id="speed-value">1.0</span>x</label>
+            <input type="range" id="speed-slider" min="0" max="5" step="0.1" value="1.0">
+        </div>
+        <button class="btn" onclick="resetView()">🔄 Reset View</button>
+        <button class="btn" onclick="toggleOrbits()">🔵 Toggle Orbits</button>
+    </div>
+
+    <div id="gesture-indicator" class="glass">
+        <div class="gesture-icon" id="gesture-icon">👋</div>
+        <div class="gesture-name" id="gesture-name">Open Palm</div>
+    </div>
+
+    <div id="video-container">
+        <video id="input-video"></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        /**
+         * 1. CONFIGURATION & STATE
+         */
+        let orbitSpeed = 1.0;
+        let isPaused = false;
+        let showOrbits = true;
+        let cameraDistance = 150;
+        let cameraAngleX = 0;
+        let cameraAngleY = Math.PI / 6;
+        
+        // Hand tracking
+        let handX = 0, handY = 0, prevHandX = 0, prevHandY = 0;
+        let isFist = false, isPeace = false, isPinch = false;
+        let lastGestureTime = 0;
+        
+        // Gesture smoothing for better accuracy
+        let smoothedHandX = 0, smoothedHandY = 0;
+        let gestureStability = { fist: 0, peace: 0, pinch: 0, openPalm: 0 };
+        
+        // FPS tracking
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+
+        // UI Elements
+        const fpsDisplay = document.getElementById('fps');
+        const zoomDisplay = document.getElementById('zoom-level');
+        const speedDisplay = document.getElementById('speed-display');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+
+        /**
+         * 2. PLANET DATA
+         */
+        const planetData = {
+            sun: {
+                name: '☀️ The Sun',
+                description: 'The Sun is the star at the center of our Solar System. It accounts for about 99.86% of the total mass of the Solar System.',
+                type: 'G-type Main-sequence Star',
+                diameter: '1,391,000 km',
+                temperature: '5,500°C (surface)',
+                age: '4.6 billion years'
+            },
+            mercury: {
+                name: '☿️ Mercury',
+                description: 'Mercury is the smallest and innermost planet in the Solar System. Its orbit around the Sun takes 87.97 Earth days.',
+                type: 'Terrestrial Planet',
+                diameter: '4,879 km',
+                temperature: '-173°C to 427°C',
+                age: '4.5 billion years'
+            },
+            venus: {
+                name: '♀️ Venus',
+                description: 'Venus is the second planet from the Sun. It is named after the Roman goddess of love and beauty.',
+                type: 'Terrestrial Planet',
+                diameter: '12,104 km',
+                temperature: '462°C (average)',
+                age: '4.5 billion years'
+            },
+            earth: {
+                name: '🌍 Earth',
+                description: 'Earth is the third planet from the Sun and the only astronomical object known to harbor life.',
+                type: 'Terrestrial Planet',
+                diameter: '12,742 km',
+                temperature: '15°C (average)',
+                age: '4.5 billion years'
+            },
+            mars: {
+                name: '♂️ Mars',
+                description: 'Mars is the fourth planet from the Sun and the second-smallest planet in the Solar System, being larger than only Mercury.',
+                type: 'Terrestrial Planet',
+                diameter: '6,779 km',
+                temperature: '-63°C (average)',
+                age: '4.6 billion years'
+            },
+            jupiter: {
+                name: '♃ Jupiter',
+                description: 'Jupiter is the fifth planet from the Sun and the largest in the Solar System. It is a gas giant with a mass more than two and a half times that of all the other planets combined.',
+                type: 'Gas Giant',
+                diameter: '139,820 km',
+                temperature: '-108°C (cloud tops)',
+                age: '4.6 billion years'
+            },
+            saturn: {
+                name: '♄ Saturn',
+                description: 'Saturn is the sixth planet from the Sun and the second-largest in the Solar System. It is a gas giant with an average radius of about nine times that of Earth.',
+                type: 'Gas Giant',
+                diameter: '116,460 km',
+                temperature: '-139°C (average)',
+                age: '4.5 billion years'
+            },
+            uranus: {
+                name: '♅ Uranus',
+                description: 'Uranus is the seventh planet from the Sun. It has the third-largest planetary radius and fourth-largest planetary mass in the Solar System.',
+                type: 'Ice Giant',
+                diameter: '50,724 km',
+                temperature: '-197°C (average)',
+                age: '4.5 billion years'
+            },
+            neptune: {
+                name: '♆ Neptune',
+                description: 'Neptune is the eighth and farthest-known Solar planet from the Sun. It is the fourth-largest planet by diameter and the third-most-massive.',
+                type: 'Ice Giant',
+                diameter: '49,244 km',
+                temperature: '-201°C (average)',
+                age: '4.5 billion years'
+            }
+        };
+
+        /**
+         * 3. THREE.JS SETUP
+         */
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x333333);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 2, 1000);
+        scene.add(pointLight);
+
+        // Stars background
+        const starGeometry = new THREE.BufferGeometry();
+        const starVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            const x = (Math.random() - 0.5) * 2000;
+            const y = (Math.random() - 0.5) * 2000;
+            const z = (Math.random() - 0.5) * 2000;
+            starVertices.push(x, y, z);
+        }
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7 });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        /**
+         * 4. CREATE PLANETS
+         */
+        const planets = [];
+        const orbitLines = [];
+
+        // Sun
+        const sunGeometry = new THREE.SphereGeometry(5, 64, 64);
+        const sunMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xfdb813,
+            emissive: 0xfdb813,
+            emissiveIntensity: 1
+        });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        scene.add(sun);
+
+        // Planet configurations: [name, size, distance, color, speed]
+        const planetConfigs = [
+            ['mercury', 0.4, 10, 0x8c7853, 4.15],
+            ['venus', 0.9, 15, 0xffc649, 1.62],
+            ['earth', 1, 20, 0x2233ff, 1.0],
+            ['mars', 0.5, 25, 0xcd5c5c, 0.53],
+            ['jupiter', 3, 40, 0xdaa520, 0.08],
+            ['saturn', 2.5, 55, 0xfad5a5, 0.03],
+            ['uranus', 1.5, 70, 0x4fd0e7, 0.01],
+            ['neptune', 1.4, 85, 0x4166f5, 0.006]
+        ];
+
+        planetConfigs.forEach(([name, size, distance, color, speed]) => {
+            // Create planet
+            const geometry = new THREE.SphereGeometry(size, 64, 64);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: color,
+                metalness: 0.3,
+                roughness: 0.7
+            });
+            const planet = new THREE.Mesh(geometry, material);
+            
+            planet.userData = {
+                name: name,
+                distance: distance,
+                speed: speed,
+                angle: Math.random() * Math.PI * 2,
+                size: size
+            };
+            
+            scene.add(planet);
+            planets.push(planet);
+
+            // Create orbit line
+            const orbitGeometry = new THREE.BufferGeometry();
+            const orbitPoints = [];
+            for (let i = 0; i <= 64; i++) {
+                const angle = (i / 64) * Math.PI * 2;
+                orbitPoints.push(
+                    Math.cos(angle) * distance,
+                    0,
+                    Math.sin(angle) * distance
+                );
+            }
+            orbitGeometry.setAttribute('position', new THREE.Float32BufferAttribute(orbitPoints, 3));
+            const orbitMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x444444,
+                transparent: true,
+                opacity: 0.3
+            });
+            const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+            scene.add(orbitLine);
+            orbitLines.push(orbitLine);
+        });
+
+        // Saturn's rings
+        const saturnRingGeometry = new THREE.RingGeometry(3.5, 5, 32);
+        const saturnRingMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xc9b18a, 
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.6
+        });
+        const saturnRing = new THREE.Mesh(saturnRingGeometry, saturnRingMaterial);
+        saturnRing.rotation.x = Math.PI / 2;
+        planets[5].add(saturnRing); // Attach to Saturn
+
+        /**
+         * 5. HAND TRACKING
+         */
+        const videoElement = document.getElementById('input-video');
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                prevHandX = handX;
+                prevHandY = handY;
+                
+                // Hand position smoothing
+                const rawHandX = (landmarks[8].x - 0.5) * 2;
+                const rawHandY = (landmarks[8].y - 0.5) * 2;
+                smoothedHandX = smoothedHandX * 0.65 + rawHandX * 0.35;
+                smoothedHandY = smoothedHandY * 0.65 + rawHandY * 0.35;
+                handX = smoothedHandX;
+                handY = smoothedHandY;
+
+                // Improved fist detection (zoom in)
+                const palmCenter = landmarks[9];
+                const fingersToCheck = [8, 12, 16, 20];
+                const fingerDistances = fingersToCheck.map(tip => 
+                    Math.sqrt(Math.pow(landmarks[tip].x - palmCenter.x, 2) + Math.pow(landmarks[tip].y - palmCenter.y, 2))
+                );
+                const avgFingerDist = fingerDistances.reduce((a, b) => a + b) / 4;
+                const fistDetected = avgFingerDist < 0.12;
+                gestureStability.fist = fistDetected ? Math.min(gestureStability.fist + 1, 5) : Math.max(gestureStability.fist - 1, 0);
+                isFist = gestureStability.fist >= 3;
+
+                // Peace sign detection (pause/resume)
+                const palm = landmarks[9];
+                const indexExtended = landmarks[8].y < palm.y - 0.05;
+                const middleExtended = landmarks[12].y < palm.y - 0.05;
+                const ringFolded = landmarks[16].y > palm.y - 0.02;
+                const pinkyFolded = landmarks[20].y > palm.y - 0.02;
+                const fingerSpacing = Math.sqrt(
+                    Math.pow(landmarks[8].x - landmarks[12].x, 2) + 
+                    Math.pow(landmarks[8].y - landmarks[12].y, 2)
+                );
+                
+                isPeace = indexExtended && middleExtended && ringFolded && pinkyFolded && fingerSpacing > 0.03 && !isFist;
+                
+                if (isPeace && Date.now() - lastGestureTime > 1000) {
+                    isPaused = !isPaused;
+                    lastGestureTime = Date.now();
+                }
+
+                // Pinch detection (speed control)
+                const pinchDist = Math.sqrt(
+                    Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
+                    Math.pow(landmarks[4].y - landmarks[8].y, 2)
+                );
+                isPinch = pinchDist < 0.05;
+                
+                updateGestureIndicator();
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        /**
+         * 6. CAMERA CONTROL
+         */
+        function updateCamera() {
+            // Zoom with gestures
+            if (isFist) {
+                cameraDistance = Math.max(30, cameraDistance - 1.5);
+            } else if (!isPinch) {
+                cameraDistance = Math.min(250, cameraDistance + 0.5);
+            }
+
+            // Rotate camera with hand movement
+            const deltaX = handX - prevHandX;
+            const deltaY = handY - prevHandY;
+            
+            if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001) {
+                cameraAngleX += deltaX * 2;
+                cameraAngleY = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraAngleY - deltaY * 2));
+            }
+
+            camera.position.x = cameraDistance * Math.sin(cameraAngleX) * Math.cos(cameraAngleY);
+            camera.position.y = cameraDistance * Math.sin(cameraAngleY);
+            camera.position.z = cameraDistance * Math.cos(cameraAngleX) * Math.cos(cameraAngleY);
+            camera.lookAt(0, 0, 0);
+
+            // Update zoom display
+            const zoomPercent = Math.round((250 - cameraDistance) / 220 * 100);
+            zoomDisplay.textContent = zoomPercent;
+        }
+
+        /**
+         * 7. ANIMATION LOOP
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsDisplay.textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            // Update planets
+            if (!isPaused) {
+                planets.forEach(planet => {
+                    planet.userData.angle += planet.userData.speed * 0.001 * orbitSpeed;
+                    planet.position.x = Math.cos(planet.userData.angle) * planet.userData.distance;
+                    planet.position.z = Math.sin(planet.userData.angle) * planet.userData.distance;
+                    planet.rotation.y += 0.01;
+                });
+            }
+
+            // Speed control with pinch
+            if (isPinch) {
+                orbitSpeed = Math.max(0, orbitSpeed - 0.02);
+                document.getElementById('speed-slider').value = orbitSpeed;
+                document.getElementById('speed-value').textContent = orbitSpeed.toFixed(1);
+                speedDisplay.textContent = orbitSpeed.toFixed(1);
+            }
+
+            // Update camera
+            updateCamera();
+
+            // Rotate sun
+            sun.rotation.y += 0.001;
+
+            renderer.render(scene, camera);
+        }
+
+        /**
+         * 8. UI CONTROLS
+         */
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            orbitSpeed = parseFloat(e.target.value);
+            document.getElementById('speed-value').textContent = orbitSpeed.toFixed(1);
+            speedDisplay.textContent = orbitSpeed.toFixed(1);
+        });
+
+        function resetView() {
+            cameraDistance = 150;
+            cameraAngleX = 0;
+            cameraAngleY = Math.PI / 6;
+            orbitSpeed = 1.0;
+            isPaused = false;
+            document.getElementById('speed-slider').value = 1.0;
+            document.getElementById('speed-value').textContent = '1.0';
+            speedDisplay.textContent = '1.0';
+        }
+
+        function toggleOrbits() {
+            showOrbits = !showOrbits;
+            orbitLines.forEach(line => {
+                line.visible = showOrbits;
+            });
+        }
+
+        function updateGestureIndicator() {
+            if (isPaused) {
+                gestureIcon.textContent = '⏸️';
+                gestureName.textContent = 'Paused';
+            } else if (isFist) {
+                gestureIcon.textContent = '✊';
+                gestureName.textContent = 'Zoom In';
+            } else if (isPinch) {
+                gestureIcon.textContent = '🤏';
+                gestureName.textContent = 'Slow Down';
+            } else if (isPeace) {
+                gestureIcon.textContent = '✌️';
+                gestureName.textContent = 'Peace Sign';
+            } else {
+                gestureIcon.textContent = '👋';
+                gestureName.textContent = 'Zoom Out';
+            }
+        }
+
+        // Click planets for info
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('click', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([sun, ...planets]);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                let dataKey = 'sun';
+                
+                if (object !== sun) {
+                    dataKey = object.userData.name;
+                }
+
+                const data = planetData[dataKey];
+                document.getElementById('planet-name').textContent = data.name;
+                document.getElementById('planet-description').textContent = data.description;
+                document.getElementById('planet-type').textContent = data.type;
+                document.getElementById('planet-diameter').textContent = data.diameter;
+                document.getElementById('planet-temp').textContent = data.temperature;
+                document.getElementById('planet-age').textContent = data.age;
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

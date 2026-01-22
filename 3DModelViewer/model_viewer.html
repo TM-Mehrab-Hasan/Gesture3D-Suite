@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer - Hand Gesture Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            pointer-events: none; 
+            max-width: 350px;
+            padding: 20px;
+        }
+        
+        #ui h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hint { 
+            font-size: 0.85em; 
+            opacity: 0.8; 
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        #stats {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* Model Selection Panel */
+        #model-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            padding: 20px;
+            pointer-events: all;
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        
+        #model-panel h3 {
+            margin: 0 0 15px 0;
+            color: #a78bfa;
+            font-size: 1.2em;
+        }
+        
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .model-btn {
+            padding: 12px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .model-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .model-btn.active {
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            border-color: #a78bfa;
+        }
+        
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 15px 20px;
+            pointer-events: all;
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+        }
+        
+        .control-group label {
+            display: block;
+            color: #ccc;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            cursor: pointer;
+            border: none;
+        }
+        
+        .value-display {
+            color: #a78bfa;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #a78bfa 0%, #ec4899 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(167, 139, 250, 0.4);
+        }
+        
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+        
+        /* Video Container */
+        #video-container { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transform: scaleX(-1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        /* Gesture Indicator */
+        #gesture-indicator {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            padding: 15px 20px;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        #gesture-indicator .gesture-name {
+            font-size: 1em;
+            font-weight: bold;
+            color: #a78bfa;
+            margin-bottom: 5px;
+        }
+        
+        #gesture-indicator .gesture-icon {
+            font-size: 1.5em;
+        }
+        
+        #model-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #model-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        #model-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .color-swatch {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border-color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui" class="glass">
+        <h1>🎨 3D Model Viewer</h1>
+        <p class="hint">
+            👋 <strong>Open Palm:</strong> Rotate Model<br>
+            ✊ <strong>Fist:</strong> Scale Up<br>
+            ✌️ <strong>Peace:</strong> Reset View<br>
+            🤏 <strong>Pinch:</strong> Scale Down<br>
+            👆 <strong>Move Hand:</strong> Control Rotation
+        </p>
+        <div id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Scale: <span id="scale-display">1.0</span>x</div>
+            <div>Model: <span id="current-model">Cube</span></div>
+        </div>
+    </div>
+
+    <div id="model-panel" class="glass">
+        <h3>🎭 Select Model</h3>
+        <div class="model-grid">
+            <button class="model-btn active" data-model="cube">🧊 Cube</button>
+            <button class="model-btn" data-model="sphere">⚽ Sphere</button>
+            <button class="model-btn" data-model="torus">🍩 Torus</button>
+            <button class="model-btn" data-model="pyramid">🔺 Pyramid</button>
+            <button class="model-btn" data-model="cylinder">🛢️ Cylinder</button>
+            <button class="model-btn" data-model="cone">🍦 Cone</button>
+            <button class="model-btn" data-model="dodecahedron">⬢ Dodecahedron</button>
+            <button class="model-btn" data-model="knot">🪢 Knot</button>
+        </div>
+
+        <h3>🎨 Material</h3>
+        <div class="control-group">
+            <label>Metalness: <span class="value-display" id="metalness-value">0.5</span></label>
+            <input type="range" id="metalness-slider" min="0" max="1" step="0.1" value="0.5">
+        </div>
+        <div class="control-group">
+            <label>Roughness: <span class="value-display" id="roughness-value">0.5</span></label>
+            <input type="range" id="roughness-slider" min="0" max="1" step="0.1" value="0.5">
+        </div>
+
+        <h3>🌈 Color</h3>
+        <div class="color-picker">
+            <div class="color-swatch active" style="background: #a78bfa;" data-color="0xa78bfa"></div>
+            <div class="color-swatch" style="background: #ec4899;" data-color="0xec4899"></div>
+            <div class="color-swatch" style="background: #3b82f6;" data-color="0x3b82f6"></div>
+            <div class="color-swatch" style="background: #10b981;" data-color="0x10b981"></div>
+            <div class="color-swatch" style="background: #f59e0b;" data-color="0xf59e0b"></div>
+            <div class="color-swatch" style="background: #ef4444;" data-color="0xef4444"></div>
+        </div>
+    </div>
+
+    <div id="control-panel" class="glass">
+        <div class="control-group">
+            <label>Auto-Rotate: <span class="value-display" id="auto-rotate-value">0.5</span></label>
+            <input type="range" id="auto-rotate-slider" min="0" max="2" step="0.1" value="0.5">
+        </div>
+        <button class="btn" onclick="resetModel()">🔄 Reset</button>
+        <button class="btn" onclick="toggleWireframe()">🔲 Wireframe</button>
+        <button class="btn" onclick="toggleGrid()">📐 Grid</button>
+    </div>
+
+    <div id="gesture-indicator" class="glass">
+        <div class="gesture-icon" id="gesture-icon">👋</div>
+        <div class="gesture-name" id="gesture-name">Rotate</div>
+    </div>
+
+    <div id="video-container">
+        <video id="input-video"></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        /**
+         * 1. CONFIGURATION & STATE
+         */
+        let currentModelType = 'cube';
+        let modelScale = 1.0;
+        let autoRotateSpeed = 0.005;
+        let handX = 0, handY = 0, prevHandX = 0, prevHandY = 0;
+        let isFist = false, isPeace = false, isPinch = false;
+        let lastGestureTime = 0;
+        let rotationX = 0, rotationY = 0;
+        let showWireframe = false;
+        let showGrid = true;
+        
+        // Gesture smoothing for better accuracy
+        let smoothedHandX = 0, smoothedHandY = 0;
+        let gestureStability = { fist: 0, peace: 0, pinch: 0 };
+        
+        let metalness = 0.5;
+        let roughness = 0.5;
+        let modelColor = 0xa78bfa;
+        
+        // FPS tracking
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+
+        // UI Elements
+        const fpsDisplay = document.getElementById('fps');
+        const scaleDisplay = document.getElementById('scale-display');
+        const currentModelDisplay = document.getElementById('current-model');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+
+        /**
+         * 2. THREE.JS SETUP
+         */
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1e1e2e);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 5);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 5, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        const pointLight1 = new THREE.PointLight(0xa78bfa, 0.5);
+        pointLight1.position.set(-5, 3, 3);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xec4899, 0.5);
+        pointLight2.position.set(5, -3, 3);
+        scene.add(pointLight2);
+
+        // Grid
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        // Axes helper (optional)
+        const axesHelper = new THREE.AxesHelper(3);
+        scene.add(axesHelper);
+
+        /**
+         * 3. MODEL CREATION
+         */
+        let currentModel = null;
+
+        function createModel(type) {
+            let geometry;
+            
+            switch(type) {
+                case 'cube':
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+                    break;
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(1.5, 64, 64);
+                    break;
+                case 'torus':
+                    geometry = new THREE.TorusGeometry(1.2, 0.4, 16, 100);
+                    break;
+                case 'pyramid':
+                    geometry = new THREE.ConeGeometry(1.5, 2.5, 4);
+                    break;
+                case 'cylinder':
+                    geometry = new THREE.CylinderGeometry(1, 1, 2.5, 32);
+                    break;
+                case 'cone':
+                    geometry = new THREE.ConeGeometry(1.5, 2.5, 32);
+                    break;
+                case 'dodecahedron':
+                    geometry = new THREE.DodecahedronGeometry(1.5);
+                    break;
+                case 'knot':
+                    geometry = new THREE.TorusKnotGeometry(1, 0.3, 100, 16);
+                    break;
+                default:
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+                color: modelColor,
+                metalness: metalness,
+                roughness: roughness,
+                wireframe: showWireframe
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            return mesh;
+        }
+
+        // Initialize with cube
+        currentModel = createModel('cube');
+        scene.add(currentModel);
+
+        function switchModel(type) {
+            if (currentModel) {
+                scene.remove(currentModel);
+                currentModel.geometry.dispose();
+                currentModel.material.dispose();
+            }
+            
+            currentModelType = type;
+            currentModel = createModel(type);
+            currentModel.scale.set(modelScale, modelScale, modelScale);
+            currentModel.rotation.x = rotationX;
+            currentModel.rotation.y = rotationY;
+            scene.add(currentModel);
+            
+            // Update UI
+            const modelNames = {
+                cube: 'Cube', sphere: 'Sphere', torus: 'Torus', pyramid: 'Pyramid',
+                cylinder: 'Cylinder', cone: 'Cone', dodecahedron: 'Dodecahedron', knot: 'Knot'
+            };
+            currentModelDisplay.textContent = modelNames[type];
+        }
+
+        /**
+         * 4. HAND TRACKING
+         */
+        const videoElement = document.getElementById('input-video');
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                prevHandX = handX;
+                prevHandY = handY;
+                
+                // Hand position smoothing
+                const rawHandX = (landmarks[8].x - 0.5) * 2;
+                const rawHandY = (landmarks[8].y - 0.5) * 2;
+                smoothedHandX = smoothedHandX * 0.65 + rawHandX * 0.35;
+                smoothedHandY = smoothedHandY * 0.65 + rawHandY * 0.35;
+                handX = smoothedHandX;
+                handY = smoothedHandY;
+
+                // Improved fist detection (scale up)
+                const palmCenter = landmarks[9];
+                const fingersToCheck = [8, 12, 16, 20];
+                const fingerDistances = fingersToCheck.map(tip => 
+                    Math.sqrt(Math.pow(landmarks[tip].x - palmCenter.x, 2) + Math.pow(landmarks[tip].y - palmCenter.y, 2))
+                );
+                const avgFingerDist = fingerDistances.reduce((a, b) => a + b) / 4;
+                const fistDetected = avgFingerDist < 0.12;
+                gestureStability.fist = fistDetected ? Math.min(gestureStability.fist + 1, 5) : Math.max(gestureStability.fist - 1, 0);
+                isFist = gestureStability.fist >= 3;
+
+                // Peace sign detection (reset)
+                const palm = landmarks[9];
+                const indexExtended = landmarks[8].y < palm.y - 0.05;
+                const middleExtended = landmarks[12].y < palm.y - 0.05;
+                const ringFolded = landmarks[16].y > palm.y - 0.02;
+                const pinkyFolded = landmarks[20].y > palm.y - 0.02;
+                const fingerSpacing = Math.sqrt(
+                    Math.pow(landmarks[8].x - landmarks[12].x, 2) + 
+                    Math.pow(landmarks[8].y - landmarks[12].y, 2)
+                );
+                
+                isPeace = indexExtended && middleExtended && ringFolded && pinkyFolded && fingerSpacing > 0.03 && !isFist;
+                
+                if (isPeace && Date.now() - lastGestureTime > 1500) {
+                    resetModel();
+                    lastGestureTime = Date.now();
+                }
+
+                // Pinch detection (scale down)
+                const pinchDist = Math.sqrt(
+                    Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
+                    Math.pow(landmarks[4].y - landmarks[8].y, 2)
+                );
+                isPinch = pinchDist < 0.05;
+                
+                updateGestureIndicator();
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        /**
+         * 5. MODEL CONTROL
+         */
+        function updateModelTransform() {
+            // Scale control
+            if (isFist) {
+                modelScale = Math.min(3, modelScale + 0.02);
+            } else if (isPinch) {
+                modelScale = Math.max(0.2, modelScale - 0.02);
+            }
+
+            currentModel.scale.set(modelScale, modelScale, modelScale);
+            scaleDisplay.textContent = modelScale.toFixed(2);
+
+            // Rotation control with hand movement
+            const deltaX = handX - prevHandX;
+            const deltaY = handY - prevHandY;
+            
+            if (Math.abs(deltaX) > 0.01 || Math.abs(deltaY) > 0.01) {
+                rotationY += deltaX * 3;
+                rotationX -= deltaY * 3;
+            }
+
+            // Auto-rotate
+            if (autoRotateSpeed > 0 && !isFist && !isPinch) {
+                rotationY += autoRotateSpeed;
+            }
+
+            currentModel.rotation.x = rotationX;
+            currentModel.rotation.y = rotationY;
+        }
+
+        /**
+         * 6. ANIMATION LOOP
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsDisplay.textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            updateModelTransform();
+
+            // Animate lights
+            pointLight1.position.x = Math.sin(Date.now() * 0.001) * 5;
+            pointLight2.position.x = Math.cos(Date.now() * 0.001) * 5;
+
+            renderer.render(scene, camera);
+        }
+
+        /**
+         * 7. UI CONTROLS
+         */
+        
+        // Model selection
+        document.querySelectorAll('.model-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                switchModel(btn.dataset.model);
+            });
+        });
+
+        // Sliders
+        document.getElementById('auto-rotate-slider').addEventListener('input', (e) => {
+            autoRotateSpeed = parseFloat(e.target.value) * 0.01;
+            document.getElementById('auto-rotate-value').textContent = e.target.value;
+        });
+
+        document.getElementById('metalness-slider').addEventListener('input', (e) => {
+            metalness = parseFloat(e.target.value);
+            currentModel.material.metalness = metalness;
+            document.getElementById('metalness-value').textContent = metalness.toFixed(1);
+        });
+
+        document.getElementById('roughness-slider').addEventListener('input', (e) => {
+            roughness = parseFloat(e.target.value);
+            currentModel.material.roughness = roughness;
+            document.getElementById('roughness-value').textContent = roughness.toFixed(1);
+        });
+
+        // Color picker
+        document.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', () => {
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                swatch.classList.add('active');
+                modelColor = parseInt(swatch.dataset.color);
+                currentModel.material.color.setHex(modelColor);
+            });
+        });
+
+        function resetModel() {
+            modelScale = 1.0;
+            rotationX = 0;
+            rotationY = 0;
+            currentModel.scale.set(1, 1, 1);
+            currentModel.rotation.set(0, 0, 0);
+        }
+
+        function toggleWireframe() {
+            showWireframe = !showWireframe;
+            currentModel.material.wireframe = showWireframe;
+        }
+
+        function toggleGrid() {
+            showGrid = !showGrid;
+            gridHelper.visible = showGrid;
+            axesHelper.visible = showGrid;
+        }
+
+        function updateGestureIndicator() {
+            if (isFist) {
+                gestureIcon.textContent = '✊';
+                gestureName.textContent = 'Scale Up';
+            } else if (isPinch) {
+                gestureIcon.textContent = '🤏';
+                gestureName.textContent = 'Scale Down';
+            } else if (isPeace) {
+                gestureIcon.textContent = '✌️';
+                gestureName.textContent = 'Reset';
+            } else {
+                gestureIcon.textContent = '👋';
+                gestureName.textContent = 'Rotate';
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

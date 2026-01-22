@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Gesture Drawing - Paint in 3D Space</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            pointer-events: none; 
+            max-width: 350px;
+            padding: 20px;
+        }
+        
+        #ui h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hint { 
+            font-size: 0.85em; 
+            opacity: 0.8; 
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        #stats {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            padding: 20px;
+            pointer-events: all;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        #control-panel h3 {
+            margin: 0 0 15px 0;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+        }
+        
+        .control-label {
+            display: block;
+            color: #ccc;
+            font-size: 0.85em;
+            margin-bottom: 8px;
+        }
+        
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .color-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .color-btn:hover {
+            transform: scale(1.1);
+            border-color: white;
+        }
+        
+        .color-btn.active {
+            border-color: white;
+            border-width: 3px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+        
+        .brush-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .brush-btn {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .brush-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .brush-btn.active {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.3);
+        }
+        
+        .slider-container {
+            margin-bottom: 15px;
+        }
+        
+        .slider {
+            width: 100%;
+            margin: 8px 0;
+            appearance: none;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        
+        .slider-value {
+            display: inline-block;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        /* Video Container */
+        #video-container { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transform: scaleX(-1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        /* Gesture Indicator */
+        #gesture-indicator {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            padding: 15px 20px;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        #gesture-indicator .gesture-name {
+            font-size: 1em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        #gesture-indicator .gesture-icon {
+            font-size: 1.5em;
+        }
+        
+        /* Cursor */
+        #cursor-3d {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid white;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        #cursor-3d.drawing {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%) scale(1.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui" class="glass">
+        <h1>🎨 3D Gesture Drawing</h1>
+        <p class="hint">
+            ☝️ <strong>Index Finger:</strong> Move cursor<br>
+            ✊ <strong>Fist:</strong> Draw/Paint<br>
+            ✌️ <strong>Peace:</strong> Erase<br>
+            🤏 <strong>Pinch:</strong> Undo last stroke<br>
+            🖐️ <strong>Open Palm:</strong> Rotate view<br>
+            👉 <strong>Point Right:</strong> Clear all
+        </p>
+        <div id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Strokes: <span id="stroke-count">0</span></div>
+            <div>Points: <span id="point-count">0</span></div>
+        </div>
+    </div>
+
+    <div id="control-panel" class="glass">
+        <h3>🎨 Brush Settings</h3>
+        
+        <div class="control-section">
+            <label class="control-label">Brush Type</label>
+            <div class="brush-grid">
+                <button class="brush-btn active" data-brush="sphere" title="Sphere">●</button>
+                <button class="brush-btn" data-brush="tube" title="Tube">━</button>
+                <button class="brush-btn" data-brush="ribbon" title="Ribbon">～</button>
+                <button class="brush-btn" data-brush="particles" title="Particles">✨</button>
+                <button class="brush-btn" data-brush="glow" title="Glow">💫</button>
+                <button class="brush-btn" data-brush="cube" title="Cube">◼</button>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <label class="control-label">Colors</label>
+            <div class="color-grid">
+                <button class="color-btn active" style="background: #ff0000;" data-color="#ff0000"></button>
+                <button class="color-btn" style="background: #00ff00;" data-color="#00ff00"></button>
+                <button class="color-btn" style="background: #0000ff;" data-color="#0000ff"></button>
+                <button class="color-btn" style="background: #ffff00;" data-color="#ffff00"></button>
+                <button class="color-btn" style="background: #ff00ff;" data-color="#ff00ff"></button>
+                <button class="color-btn" style="background: #00ffff;" data-color="#00ffff"></button>
+                <button class="color-btn" style="background: #ff8800;" data-color="#ff8800"></button>
+                <button class="color-btn" style="background: #ffffff;" data-color="#ffffff"></button>
+                <button class="color-btn" style="background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff);" data-color="rainbow"></button>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <label class="control-label">
+                Brush Size: <span class="slider-value" id="size-value">0.2</span>
+            </label>
+            <input type="range" class="slider" id="brush-size" min="0.05" max="1" step="0.05" value="0.2">
+        </div>
+        
+        <div class="control-section">
+            <label class="control-label">
+                Drawing Speed: <span class="slider-value" id="speed-value">5</span>
+            </label>
+            <input type="range" class="slider" id="draw-speed" min="1" max="20" step="1" value="5">
+        </div>
+        
+        <div class="control-section">
+            <button class="btn" onclick="saveDrawing()">💾 Save Drawing</button>
+            <button class="btn" onclick="loadDrawing()">📂 Load Drawing</button>
+            <button class="btn" onclick="exportImage()">📸 Export Image</button>
+            <button class="btn btn-danger" onclick="clearAll()">🗑️ Clear All</button>
+        </div>
+    </div>
+
+    <div id="gesture-indicator" class="glass">
+        <div class="gesture-icon" id="gesture-icon">☝️</div>
+        <div class="gesture-name" id="gesture-name">Moving Cursor</div>
+    </div>
+
+    <div id="cursor-3d"></div>
+
+    <div id="video-container">
+        <video id="input-video"></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        /**
+         * 1. CONFIGURATION & STATE
+         */
+        let brushType = 'sphere';
+        let brushColor = '#ff0000';
+        let brushSize = 0.2;
+        let drawSpeed = 5;
+        let isDrawing = false;
+        let isErasing = false;
+        let currentStroke = [];
+        let allStrokes = [];
+        
+        let cursor3DPos = new THREE.Vector3(0, 0, 0);
+        let handX = 0, handY = 0, handZ = 0;
+        let isFist = false, isPeace = false, isPinch = false, isOpenPalm = false, isPointingRight = false;
+        let lastGestureTime = 0;
+        let lastPinchTime = 0;
+        
+        // Gesture smoothing for better accuracy
+        let smoothedHandX = 0, smoothedHandY = 0;
+        let gestureStability = { fist: 0, peace: 0, pinch: 0, openPalm: 0 };
+        
+        // FPS tracking
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+
+        // UI Elements
+        const fpsDisplay = document.getElementById('fps');
+        const strokeCountDisplay = document.getElementById('stroke-count');
+        const pointCountDisplay = document.getElementById('point-count');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+        const cursor3D = document.getElementById('cursor-3d');
+
+        /**
+         * 2. THREE.JS SETUP
+         */
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 10);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(0xffffff, 0.8);
+        pointLight1.position.set(10, 10, 10);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xffffff, 0.5);
+        pointLight2.position.set(-10, -10, 5);
+        scene.add(pointLight2);
+
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        // 3D Cursor
+        const cursorGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+        const cursorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+        const cursor3DMesh = new THREE.Mesh(cursorGeometry, cursorMaterial);
+        scene.add(cursor3DMesh);
+
+        /**
+         * 3. BRUSH IMPLEMENTATIONS
+         */
+        function createBrushPoint(position, color, size, type) {
+            let mesh;
+            
+            switch (type) {
+                case 'sphere':
+                    const sphereGeo = new THREE.SphereGeometry(size, 32, 32);
+                    const sphereMat = new THREE.MeshStandardMaterial({ 
+                        color: color,
+                        emissive: color,
+                        emissiveIntensity: 0.3,
+                        roughness: 0.5
+                    });
+                    mesh = new THREE.Mesh(sphereGeo, sphereMat);
+                    break;
+                
+                case 'cube':
+                    const cubeGeo = new THREE.BoxGeometry(size * 2, size * 2, size * 2);
+                    const cubeMat = new THREE.MeshStandardMaterial({ 
+                        color: color,
+                        roughness: 0.7
+                    });
+                    mesh = new THREE.Mesh(cubeGeo, cubeMat);
+                    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                    break;
+                
+                case 'particles':
+                    const particleCount = 10;
+                    const particlesGeo = new THREE.BufferGeometry();
+                    const positions = [];
+                    for (let i = 0; i < particleCount; i++) {
+                        positions.push(
+                            (Math.random() - 0.5) * size * 2,
+                            (Math.random() - 0.5) * size * 2,
+                            (Math.random() - 0.5) * size * 2
+                        );
+                    }
+                    particlesGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                    const particlesMat = new THREE.PointsMaterial({ 
+                        color: color, 
+                        size: size * 0.5,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    mesh = new THREE.Points(particlesGeo, particlesMat);
+                    break;
+                
+                case 'glow':
+                    const glowGeo = new THREE.SphereGeometry(size, 32, 32);
+                    const glowMat = new THREE.MeshBasicMaterial({ 
+                        color: color,
+                        transparent: true,
+                        opacity: 0.6
+                    });
+                    mesh = new THREE.Mesh(glowGeo, glowMat);
+                    
+                    // Add outer glow
+                    const outerGlowGeo = new THREE.SphereGeometry(size * 1.5, 32, 32);
+                    const outerGlowMat = new THREE.MeshBasicMaterial({ 
+                        color: color,
+                        transparent: true,
+                        opacity: 0.2
+                    });
+                    const outerGlow = new THREE.Mesh(outerGlowGeo, outerGlowMat);
+                    mesh.add(outerGlow);
+                    break;
+                
+                default:
+                    mesh = new THREE.Mesh(sphereGeo, sphereMat);
+            }
+            
+            mesh.position.copy(position);
+            return mesh;
+        }
+
+        function createTubeBetweenPoints(points, color, size) {
+            if (points.length < 2) return null;
+            
+            const curve = new THREE.CatmullRomCurve3(points);
+            const tubeGeometry = new THREE.TubeGeometry(curve, points.length * 2, size, 8, false);
+            const tubeMaterial = new THREE.MeshStandardMaterial({ 
+                color: color,
+                emissive: color,
+                emissiveIntensity: 0.2,
+                roughness: 0.5
+            });
+            return new THREE.Mesh(tubeGeometry, tubeMaterial);
+        }
+
+        function createRibbonBetweenPoints(points, color, size) {
+            if (points.length < 2) return null;
+            
+            const vertices = [];
+            const normals = [];
+            
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                const offset = new THREE.Vector3(0, size, 0);
+                vertices.push(p.x - offset.x, p.y - offset.y, p.z - offset.z);
+                vertices.push(p.x + offset.x, p.y + offset.y, p.z + offset.z);
+                normals.push(0, 0, 1);
+                normals.push(0, 0, 1);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            
+            const material = new THREE.MeshStandardMaterial({ 
+                color: color,
+                side: THREE.DoubleSide,
+                emissive: color,
+                emissiveIntensity: 0.2
+            });
+            
+            return new THREE.Mesh(geometry, material);
+        }
+
+        /**
+         * 4. DRAWING FUNCTIONS
+         */
+        function startStroke() {
+            currentStroke = {
+                type: brushType,
+                color: brushColor,
+                size: brushSize,
+                points: [],
+                meshes: []
+            };
+        }
+
+        function addPointToStroke() {
+            if (!currentStroke || !currentStroke.points) return;
+            
+            const point = cursor3DPos.clone();
+            currentStroke.points.push(point);
+            
+            if (brushType === 'tube' || brushType === 'ribbon') {
+                // Remove old mesh
+                if (currentStroke.meshes.length > 0) {
+                    currentStroke.meshes.forEach(m => scene.remove(m));
+                    currentStroke.meshes = [];
+                }
+                
+                // Create new mesh
+                let mesh;
+                if (brushType === 'tube' && currentStroke.points.length >= 2) {
+                    mesh = createTubeBetweenPoints(currentStroke.points, currentStroke.color, currentStroke.size);
+                } else if (brushType === 'ribbon' && currentStroke.points.length >= 2) {
+                    mesh = createRibbonBetweenPoints(currentStroke.points, currentStroke.color, currentStroke.size);
+                }
+                
+                if (mesh) {
+                    scene.add(mesh);
+                    currentStroke.meshes.push(mesh);
+                }
+            } else {
+                // Add individual point mesh
+                const color = currentStroke.color === 'rainbow' 
+                    ? new THREE.Color().setHSL((Date.now() % 10000) / 10000, 1, 0.5) 
+                    : new THREE.Color(currentStroke.color);
+                
+                const mesh = createBrushPoint(point, color, currentStroke.size, currentStroke.type);
+                scene.add(mesh);
+                currentStroke.meshes.push(mesh);
+            }
+            
+            updateStats();
+        }
+
+        function endStroke() {
+            if (currentStroke && currentStroke.points.length > 0) {
+                allStrokes.push(currentStroke);
+                strokeCountDisplay.textContent = allStrokes.length;
+            }
+            currentStroke = null;
+        }
+
+        function undoLastStroke() {
+            if (allStrokes.length === 0) return;
+            
+            const stroke = allStrokes.pop();
+            stroke.meshes.forEach(mesh => scene.remove(mesh));
+            strokeCountDisplay.textContent = allStrokes.length;
+            updateStats();
+        }
+
+        function clearAll() {
+            allStrokes.forEach(stroke => {
+                stroke.meshes.forEach(mesh => scene.remove(mesh));
+            });
+            allStrokes = [];
+            if (currentStroke) {
+                currentStroke.meshes.forEach(mesh => scene.remove(mesh));
+                currentStroke = null;
+            }
+            strokeCountDisplay.textContent = '0';
+            updateStats();
+        }
+
+        function eraseNearby(position, radius = 0.5) {
+            allStrokes.forEach((stroke, strokeIndex) => {
+                stroke.meshes.forEach((mesh, meshIndex) => {
+                    if (mesh.position.distanceTo(position) < radius) {
+                        scene.remove(mesh);
+                        stroke.meshes.splice(meshIndex, 1);
+                    }
+                });
+            });
+            
+            // Remove empty strokes
+            allStrokes = allStrokes.filter(stroke => stroke.meshes.length > 0);
+            strokeCountDisplay.textContent = allStrokes.length;
+            updateStats();
+        }
+
+        function updateStats() {
+            let totalPoints = 0;
+            allStrokes.forEach(stroke => {
+                totalPoints += stroke.meshes.length;
+            });
+            if (currentStroke) {
+                totalPoints += currentStroke.meshes.length;
+            }
+            pointCountDisplay.textContent = totalPoints;
+        }
+
+        /**
+         * 5. FILE OPERATIONS
+         */
+        function saveDrawing() {
+            const data = {
+                strokes: allStrokes.map(stroke => ({
+                    type: stroke.type,
+                    color: stroke.color,
+                    size: stroke.size,
+                    points: stroke.points.map(p => ({ x: p.x, y: p.y, z: p.z }))
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'drawing3d_' + Date.now() + '.json';
+            a.click();
+        }
+
+        function loadDrawing() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const data = JSON.parse(event.target.result);
+                    
+                    clearAll();
+                    
+                    data.strokes.forEach(strokeData => {
+                        const stroke = {
+                            type: strokeData.type,
+                            color: strokeData.color,
+                            size: strokeData.size,
+                            points: strokeData.points.map(p => new THREE.Vector3(p.x, p.y, p.z)),
+                            meshes: []
+                        };
+                        
+                        // Recreate meshes
+                        if (stroke.type === 'tube' || stroke.type === 'ribbon') {
+                            let mesh;
+                            if (stroke.type === 'tube' && stroke.points.length >= 2) {
+                                mesh = createTubeBetweenPoints(stroke.points, stroke.color, stroke.size);
+                            } else if (stroke.type === 'ribbon' && stroke.points.length >= 2) {
+                                mesh = createRibbonBetweenPoints(stroke.points, stroke.color, stroke.size);
+                            }
+                            if (mesh) {
+                                scene.add(mesh);
+                                stroke.meshes.push(mesh);
+                            }
+                        } else {
+                            stroke.points.forEach(point => {
+                                const mesh = createBrushPoint(point, stroke.color, stroke.size, stroke.type);
+                                scene.add(mesh);
+                                stroke.meshes.push(mesh);
+                            });
+                        }
+                        
+                        allStrokes.push(stroke);
+                    });
+                    
+                    updateStats();
+                    strokeCountDisplay.textContent = allStrokes.length;
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function exportImage() {
+            renderer.render(scene, camera);
+            const dataURL = renderer.domElement.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'drawing3d_' + Date.now() + '.png';
+            a.click();
+        }
+
+        /**
+         * 6. UI CONTROLS
+         */
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                brushColor = btn.dataset.color;
+            });
+        });
+
+        document.querySelectorAll('.brush-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                brushType = btn.dataset.brush;
+            });
+        });
+
+        document.getElementById('brush-size').addEventListener('input', (e) => {
+            brushSize = parseFloat(e.target.value);
+            document.getElementById('size-value').textContent = brushSize.toFixed(2);
+        });
+
+        document.getElementById('draw-speed').addEventListener('input', (e) => {
+            drawSpeed = parseInt(e.target.value);
+            document.getElementById('speed-value').textContent = drawSpeed;
+        });
+
+        /**
+         * 7. HAND TRACKING
+         */
+        const videoElement = document.getElementById('input-video');
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Map hand position to 3D space with smoothing
+                const rawHandX = (landmarks[8].x - 0.5) * 20;
+                const rawHandY = -(landmarks[8].y - 0.5) * 15;
+                smoothedHandX = smoothedHandX * 0.65 + rawHandX * 0.35;
+                smoothedHandY = smoothedHandY * 0.65 + rawHandY * 0.35;
+                handX = smoothedHandX;
+                handY = smoothedHandY;
+                handZ = landmarks[8].z * 10;
+                
+                cursor3DPos.set(handX, handY, handZ);
+                
+                // Update 2D cursor position
+                const screenPos = cursor3DPos.clone().project(camera);
+                cursor3D.style.left = (screenPos.x * 0.5 + 0.5) * window.innerWidth + 'px';
+                cursor3D.style.top = (-(screenPos.y * 0.5 - 0.5)) * window.innerHeight + 'px';
+
+                // Gesture detection
+                const now = Date.now();
+                
+                // Improved fist detection
+                const palmCenter = landmarks[9];
+                const fingersToCheck = [8, 12, 16, 20];
+                const fingerDistances = fingersToCheck.map(tip => 
+                    Math.sqrt(Math.pow(landmarks[tip].x - palmCenter.x, 2) + Math.pow(landmarks[tip].y - palmCenter.y, 2))
+                );
+                const avgFingerDist = fingerDistances.reduce((a, b) => a + b) / 4;
+                const fistDetected = avgFingerDist < 0.12;
+                gestureStability.fist = fistDetected ? Math.min(gestureStability.fist + 1, 5) : Math.max(gestureStability.fist - 1, 0);
+                isFist = gestureStability.fist >= 3;
+
+                // Peace sign
+                const palm = landmarks[9];
+                const indexExtended = landmarks[8].y < palm.y - 0.05;
+                const middleExtended = landmarks[12].y < palm.y - 0.05;
+                const ringFolded = landmarks[16].y > palm.y - 0.02;
+                const pinkyFolded = landmarks[20].y > palm.y - 0.02;
+                isPeace = indexExtended && middleExtended && ringFolded && pinkyFolded && !isFist;
+
+                // Pinch
+                const pinchDist = Math.sqrt(
+                    Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
+                    Math.pow(landmarks[4].y - landmarks[8].y, 2)
+                );
+                isPinch = pinchDist < 0.05;
+
+                // Open palm
+                const fingersExtended = [8, 12, 16, 20].every(i => landmarks[i].y < palm.y - 0.05);
+                isOpenPalm = fingersExtended && !isPinch;
+
+                // Point right
+                const indexRight = landmarks[8].x > landmarks[5].x + 0.1;
+                const othersFollowed = landmarks[12].y > palm.y && landmarks[16].y > palm.y;
+                isPointingRight = indexExtended && indexRight && othersFollowed;
+                
+                // Handle drawing
+                if (isFist && now - lastGestureTime > 50) {
+                    if (!isDrawing) {
+                        startStroke();
+                        isDrawing = true;
+                    }
+                    if (frames % Math.max(1, 21 - drawSpeed) === 0) {
+                        addPointToStroke();
+                    }
+                    cursor3D.classList.add('drawing');
+                } else {
+                    if (isDrawing) {
+                        endStroke();
+                        isDrawing = false;
+                    }
+                    cursor3D.classList.remove('drawing');
+                }
+                
+                // Handle erasing
+                if (isPeace && now - lastGestureTime > 100) {
+                    eraseNearby(cursor3DPos);
+                    lastGestureTime = now;
+                }
+                
+                // Handle undo
+                if (isPinch && now - lastPinchTime > 1000) {
+                    undoLastStroke();
+                    lastPinchTime = now;
+                }
+                
+                // Handle clear all
+                if (isPointingRight && now - lastGestureTime > 2000) {
+                    clearAll();
+                    lastGestureTime = now;
+                }
+                
+                updateGestureIndicator();
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        function updateGestureIndicator() {
+            if (isFist) {
+                gestureIcon.textContent = '✊';
+                gestureName.textContent = 'Drawing';
+                cursor3D.style.borderColor = brushColor === 'rainbow' ? '#ffffff' : brushColor;
+            } else if (isPeace) {
+                gestureIcon.textContent = '✌️';
+                gestureName.textContent = 'Erasing';
+                cursor3D.style.borderColor = '#ff0000';
+            } else if (isPinch) {
+                gestureIcon.textContent = '🤏';
+                gestureName.textContent = 'Undo';
+                cursor3D.style.borderColor = '#ffff00';
+            } else if (isPointingRight) {
+                gestureIcon.textContent = '👉';
+                gestureName.textContent = 'Clear All';
+                cursor3D.style.borderColor = '#ff0000';
+            } else if (isOpenPalm) {
+                gestureIcon.textContent = '🖐️';
+                gestureName.textContent = 'Rotating';
+                cursor3D.style.borderColor = '#00ff00';
+            } else {
+                gestureIcon.textContent = '☝️';
+                gestureName.textContent = 'Moving Cursor';
+                cursor3D.style.borderColor = '#ffffff';
+            }
+        }
+
+        /**
+         * 8. CAMERA CONTROL
+         */
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraRotation = { x: 0, y: 0 };
+
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        renderer.domElement.addEventListener('mousemove', (e) => {
+            if (isDragging || isOpenPalm) {
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+                
+                cameraRotation.y += deltaX * 0.005;
+                cameraRotation.x += deltaY * 0.005;
+                
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        renderer.domElement.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        renderer.domElement.addEventListener('wheel', (e) => {
+            camera.position.z += e.deltaY * 0.01;
+            camera.position.z = Math.max(5, Math.min(30, camera.position.z));
+        });
+
+        /**
+         * 9. ANIMATION LOOP
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsDisplay.textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            // Update 3D cursor
+            cursor3DMesh.position.copy(cursor3DPos);
+            
+            // Apply camera rotation (when open palm)
+            if (isOpenPalm || isDragging) {
+                const radius = camera.position.length();
+                camera.position.x = radius * Math.sin(cameraRotation.y) * Math.cos(cameraRotation.x);
+                camera.position.y = radius * Math.sin(cameraRotation.x);
+                camera.position.z = radius * Math.cos(cameraRotation.y) * Math.cos(cameraRotation.x);
+                camera.lookAt(0, 0, 0);
+            }
+
+            // Animate rainbow color
+            if (currentStroke && currentStroke.color === 'rainbow') {
+                cursor3DMesh.material.color.setHSL((Date.now() % 10000) / 10000, 1, 0.5);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize
+        animate();
+    </script>
+</body>
+</html>

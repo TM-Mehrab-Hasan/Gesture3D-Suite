@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture3D Interactive Suite - 7 Hand-Controlled 3D Apps</title>
+    <meta name="description" content="7 interactive 3D web applications controlled entirely by hand gestures using MediaPipe and Three.js. No mouse, no keyboard - just your hands!">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.3em;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+        }
+
+        .projects {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .project-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .project-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .project-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .project-card h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        .project-card p {
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        .features {
+            list-style: none;
+            margin: 15px 0;
+            font-size: 0.9em;
+        }
+
+        .features li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .gesture-guide {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 60px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .gesture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .gesture-item {
+            text-align: center;
+        }
+
+        .gesture-emoji {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .gesture-name {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+
+        .gesture-desc {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            margin-top: 60px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .tech-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .subtitle {
+                font-size: 1.1em;
+            }
+
+            .projects {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🖐️ Gesture3D Interactive Suite</h1>
+            <p class="subtitle">7 immersive 3D web applications controlled entirely by hand gestures</p>
+            <p class="subtitle">No mouse. No keyboard. Just your hands! ✨</p>
+            
+            <div class="badges">
+                <span class="badge">✨ 7 Complete Apps</span>
+                <span class="badge">🎨 12,000+ Particles</span>
+                <span class="badge">🖐️ Real-time Hand Tracking</span>
+                <span class="badge">🚀 60 FPS Performance</span>
+                <span class="badge">📱 Browser-Based</span>
+            </div>
+
+            <div class="tech-stack">
+                <div class="tech-item">Three.js v0.152.0</div>
+                <div class="tech-item">MediaPipe Hands</div>
+                <div class="tech-item">WebGL 2.0</div>
+                <div class="tech-item">Vanilla JavaScript</div>
+            </div>
+        </header>
+
+        <div class="projects">
+            <div class="project-card">
+                <div class="project-icon">✨</div>
+                <h2>Particle System</h2>
+                <p>12,000 particles morphing into 8 mesmerizing shapes with 8 color themes</p>
+                <ul class="features">
+                    <li>Heart, Saturn, Fireworks, Spiral & more</li>
+                    <li>Real-time hand attraction</li>
+                    <li>Freeze/unfreeze animation</li>
+                </ul>
+                <a href="hand_gesture.html" class="btn">Launch App →</a>
+            </div>
+
+            <div class="project-card">
+                <div class="project-icon">🪐</div>
+                <h2>Solar System</h2>
+                <p>Explore our solar system with realistic planets and orbital mechanics</p>
+                <ul class="features">
+                    <li>8 planets with accurate details</li>
+                    <li>Saturn rings & planet info</li>
+                    <li>Adjustable orbit speed</li>
+                </ul>
+                <a href="SolarSystem/solar_system.html" class="btn">Launch App →</a>
+            </div>
+
+            <div class="project-card">
+                <div class="project-icon">🐠</div>
+                <h2>Virtual Aquarium</h2>
+                <p>Underwater world with AI-controlled fish responding to your gestures</p>
+                <ul class="features">
+                    <li>30 fish with schooling behavior</li>
+                    <li>Feed the fish with gestures</li>
+                    <li>Realistic underwater effects</li>
+                </ul>
+                <a href="VirtualAquarium/aquarium.html" class="btn">Launch App →</a>
+            </div>
+
+            <div class="project-card">
+                <div class="project-icon">🎲</div>
+                <h2>3D Model Viewer</h2>
+                <p>Professional model manipulation with material editor</p>
+                <ul class="features">
+                    <li>8 geometric models</li>
+                    <li>Material & color editor</li>
+                    <li>Wireframe mode</li>
+                </ul>
+                <a href="3DModelViewer/model_viewer.html" class="btn">Launch App →</a>
+            </div>
+
+            <div class="project-card">
+                <div class="project-icon">⚗️</div>
+                <h2>Molecule Builder</h2>
+                <p>Build chemical molecules in 3D space with CPK coloring</p>
+                <ul class="features">
+                    <li>6 atom types (H, C, N, O, P, S)</li>
+                    <li>Create covalent bonds</li>
+                    <li>6 pre-built molecules</li>
+                </ul>
+                <a href="MoleculeBuilder/molecule_builder.html" class="btn">Launch App →</a>
+            </div>
+
+            <div class="project-card">
+                <div class="project-icon">🎮</div>
+                <h2>3D Maze Game</h2>
+                <p>Navigate procedurally generated mazes using hand gestures</p>
+                <ul class="features">
+                    <li>Unique mazes each time</li>
+                    <li>Collect coins & reach goal</li>
+                    <li>Real-time minimap</li>
+                </ul>
+                <a href="MazeGame/maze_game.html" class="btn">Launch App →</a>
+            </div>
+
+            <div class="project-card">
+                <div class="project-icon">🎨</div>
+                <h2>3D Gesture Drawing</h2>
+                <p>Paint and create art in three-dimensional space</p>
+                <ul class="features">
+                    <li>6 brush types & 9 colors</li>
+                    <li>Save/load drawings</li>
+                    <li>Export as PNG images</li>
+                </ul>
+                <a href="GestureDrawing/drawing_3d.html" class="btn">Launch App →</a>
+            </div>
+        </div>
+
+        <div class="gesture-guide">
+            <h2 style="text-align: center; font-size: 2.5em; margin-bottom: 10px;">🖐️ Universal Gesture Guide</h2>
+            <p style="text-align: center; opacity: 0.9; margin-bottom: 40px;">Master these 5 gestures to control all applications</p>
+            
+            <div class="gesture-grid">
+                <div class="gesture-item">
+                    <div class="gesture-emoji">✊</div>
+                    <div class="gesture-name">Fist</div>
+                    <div class="gesture-desc">Primary action<br>Draw, move, attract</div>
+                </div>
+
+                <div class="gesture-item">
+                    <div class="gesture-emoji">🖐️</div>
+                    <div class="gesture-name">Open Palm</div>
+                    <div class="gesture-desc">Secondary action<br>Zoom out, place items</div>
+                </div>
+
+                <div class="gesture-item">
+                    <div class="gesture-emoji">✌️</div>
+                    <div class="gesture-name">Peace Sign</div>
+                    <div class="gesture-desc">Toggle actions<br>Pause, freeze, add</div>
+                </div>
+
+                <div class="gesture-item">
+                    <div class="gesture-emoji">🤏</div>
+                    <div class="gesture-name">Pinch</div>
+                    <div class="gesture-desc">Fine control<br>Switch modes, zoom</div>
+                </div>
+
+                <div class="gesture-item">
+                    <div class="gesture-emoji">👋</div>
+                    <div class="gesture-name">Hand Move</div>
+                    <div class="gesture-desc">Navigation<br>Rotate, steer, navigate</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 60px 0;">
+            <h2 style="font-size: 2.5em; margin-bottom: 20px;">🚀 Get Started</h2>
+            <p style="font-size: 1.2em; opacity: 0.9; margin-bottom: 30px;">Click any project above to start, or read the documentation</p>
+            <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                <a href="QUICKSTART.md" class="btn">📖 Quick Start Guide</a>
+                <a href="README.md" class="btn">📚 Full Documentation</a>
+                <a href="https://github.com/TM-Mehrab-Hasan/Gesture3D-Suite" class="btn">⭐ Star on GitHub</a>
+            </div>
+        </div>
+
+        <footer>
+            <h3>Built with ❤️ and 🖐️</h3>
+            <p style="margin: 20px 0; opacity: 0.8;">
+                Powered by Three.js & MediaPipe • Open Source MIT License
+            </p>
+            <p style="opacity: 0.7; font-size: 0.9em;">
+                © 2026 Gesture3D Suite • All projects run locally in your browser • No data collected
+            </p>
+            <div style="margin-top: 30px;">
+                <a href="https://github.com/TM-Mehrab-Hasan/Gesture3D-Suite" style="color: white; text-decoration: none; margin: 0 15px;">GitHub</a>
+                <a href="CONTRIBUTING.md" style="color: white; text-decoration: none; margin: 0 15px;">Contribute</a>
+                <a href="LICENSE" style="color: white; text-decoration: none; margin: 0 15px;">License</a>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Molecule Builder - Hand Gesture Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            pointer-events: none; 
+            max-width: 350px;
+            padding: 20px;
+        }
+        
+        #ui h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #00f260 0%, #0575e6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hint { 
+            font-size: 0.85em; 
+            opacity: 0.8; 
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        #stats {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* Atom Selection Panel */
+        #atom-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            padding: 20px;
+            pointer-events: all;
+        }
+        
+        #atom-panel h3 {
+            margin: 0 0 15px 0;
+            color: #00f260;
+            font-size: 1.2em;
+        }
+        
+        .atom-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .atom-btn {
+            padding: 15px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .atom-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .atom-btn.active {
+            background: linear-gradient(135deg, #00f260 0%, #0575e6 100%);
+            border-color: #00f260;
+        }
+
+        .atom-btn .symbol {
+            font-size: 1.5em;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .atom-btn .name {
+            font-size: 0.75em;
+            opacity: 0.8;
+        }
+        
+        /* Molecule Templates */
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .template-btn {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .template-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 15px 20px;
+            pointer-events: all;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #00f260 0%, #0575e6 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 242, 96, 0.4);
+        }
+        
+        /* Video Container */
+        #video-container { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transform: scaleX(-1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        /* Gesture Indicator */
+        #gesture-indicator {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            padding: 15px 20px;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        #gesture-indicator .gesture-name {
+            font-size: 1em;
+            font-weight: bold;
+            color: #00f260;
+            margin-bottom: 5px;
+        }
+        
+        #gesture-indicator .gesture-icon {
+            font-size: 1.5em;
+        }
+
+        #atom-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #atom-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        #atom-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui" class="glass">
+        <h1>🧪 Molecule Builder</h1>
+        <p class="hint">
+            👋 <strong>Open Palm:</strong> Place Atom<br>
+            ✊ <strong>Fist:</strong> Delete Nearest<br>
+            ✌️ <strong>Peace:</strong> Clear All<br>
+            🤏 <strong>Pinch:</strong> Create Bond<br>
+            👆 <strong>Move Hand:</strong> Position Atom
+        </p>
+        <div id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Atoms: <span id="atom-count">0</span></div>
+            <div>Bonds: <span id="bond-count">0</span></div>
+        </div>
+    </div>
+
+    <div id="atom-panel" class="glass">
+        <h3>⚛️ Select Atom</h3>
+        <div class="atom-grid">
+            <button class="atom-btn active" data-atom="H" data-color="0xffffff">
+                <span class="symbol">H</span>
+                <span class="name">Hydrogen</span>
+            </button>
+            <button class="atom-btn" data-atom="C" data-color="0x909090">
+                <span class="symbol">C</span>
+                <span class="name">Carbon</span>
+            </button>
+            <button class="atom-btn" data-atom="N" data-color="0x3050f8">
+                <span class="symbol">N</span>
+                <span class="name">Nitrogen</span>
+            </button>
+            <button class="atom-btn" data-atom="O" data-color="0xff0d0d">
+                <span class="symbol">O</span>
+                <span class="name">Oxygen</span>
+            </button>
+            <button class="atom-btn" data-atom="P" data-color="0xff8000">
+                <span class="symbol">P</span>
+                <span class="name">Phosphorus</span>
+            </button>
+            <button class="atom-btn" data-atom="S" data-color="0xffff30">
+                <span class="symbol">S</span>
+                <span class="name">Sulfur</span>
+            </button>
+        </div>
+
+        <h3>🧬 Quick Build</h3>
+        <div class="template-grid">
+            <button class="template-btn" onclick="buildWater()">💧 H₂O</button>
+            <button class="template-btn" onclick="buildCO2()">🌫️ CO₂</button>
+            <button class="template-btn" onclick="buildMethane()">🔥 CH₄</button>
+            <button class="template-btn" onclick="buildAmmonia()">⚗️ NH₃</button>
+            <button class="template-btn" onclick="buildEthanol()">🍺 C₂H₆O</button>
+            <button class="template-btn" onclick="buildBenzene()">⬡ C₆H₆</button>
+        </div>
+    </div>
+
+    <div id="control-panel" class="glass">
+        <button class="btn" onclick="clearAll()">🗑️ Clear All</button>
+        <button class="btn" onclick="rotateView()">🔄 Rotate</button>
+        <button class="btn" onclick="toggleLabels()">🏷️ Labels</button>
+    </div>
+
+    <div id="gesture-indicator" class="glass">
+        <div class="gesture-icon" id="gesture-icon">👋</div>
+        <div class="gesture-name" id="gesture-name">Place Atom</div>
+    </div>
+
+    <div id="video-container">
+        <video id="input-video"></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        /**
+         * 1. CONFIGURATION & STATE
+         */
+        let selectedAtomType = 'H';
+        let selectedAtomColor = 0xffffff;
+        let handX = 0, handY = 0, handZ = 0;
+        let isFist = false, isPeace = false, isPinch = false;
+        let lastGestureTime = 0;
+        let autoRotate = true;
+        let showLabels = true;
+        let lastAtom = null;
+        let bondingMode = false;
+        
+        // Gesture smoothing for better accuracy
+        let smoothedHandX = 0, smoothedHandY = 0;
+        let gestureStability = { fist: 0, peace: 0, pinch: 0 };
+        
+        // FPS tracking
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+
+        // UI Elements
+        const fpsDisplay = document.getElementById('fps');
+        const atomCountDisplay = document.getElementById('atom-count');
+        const bondCountDisplay = document.getElementById('bond-count');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+
+        // Atom properties
+        const atomSizes = {
+            'H': 0.3, 'C': 0.5, 'N': 0.45, 'O': 0.4, 'P': 0.6, 'S': 0.55
+        };
+
+        /**
+         * 2. THREE.JS SETUP
+         */
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f0c29);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 15);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        /**
+         * 3. ATOM AND BOND CLASSES
+         */
+        class Atom {
+            constructor(type, color, position) {
+                this.type = type;
+                this.position = position.clone();
+                
+                // Create atom sphere
+                const geometry = new THREE.SphereGeometry(atomSizes[type], 64, 64);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.3,
+                    roughness: 0.4,
+                    emissive: color,
+                    emissiveIntensity: 0.2
+                });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.position.copy(position);
+                scene.add(this.mesh);
+
+                // Create label
+                if (showLabels) {
+                    this.createLabel();
+                }
+
+                this.bonds = [];
+            }
+
+            createLabel() {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 128;
+                canvas.height = 128;
+                
+                context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                context.fillRect(0, 0, 128, 128);
+                
+                context.font = 'Bold 60px Arial';
+                context.fillStyle = 'white';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(this.type, 64, 64);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const spriteMaterial = new THREE.SpriteMaterial({ 
+                    map: texture,
+                    transparent: true
+                });
+                this.label = new THREE.Sprite(spriteMaterial);
+                this.label.scale.set(1, 1, 1);
+                this.label.position.copy(this.position);
+                this.label.position.y += atomSizes[this.type] + 0.5;
+                scene.add(this.label);
+            }
+
+            remove() {
+                scene.remove(this.mesh);
+                if (this.label) scene.remove(this.label);
+                this.bonds.forEach(bond => bond.remove());
+            }
+
+            distanceTo(otherAtom) {
+                return this.position.distanceTo(otherAtom.position);
+            }
+        }
+
+        class Bond {
+            constructor(atom1, atom2) {
+                this.atom1 = atom1;
+                this.atom2 = atom2;
+
+                const direction = new THREE.Vector3().subVectors(atom2.position, atom1.position);
+                const length = direction.length();
+                
+                const geometry = new THREE.CylinderGeometry(0.1, 0.1, length, 8);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: 0xcccccc,
+                    metalness: 0.5,
+                    roughness: 0.3
+                });
+                this.mesh = new THREE.Mesh(geometry, material);
+                
+                // Position and orient the bond
+                this.mesh.position.copy(atom1.position).add(direction.multiplyScalar(0.5));
+                this.mesh.quaternion.setFromUnitVectors(
+                    new THREE.Vector3(0, 1, 0),
+                    direction.normalize()
+                );
+                
+                scene.add(this.mesh);
+                
+                atom1.bonds.push(this);
+                atom2.bonds.push(this);
+            }
+
+            remove() {
+                scene.remove(this.mesh);
+            }
+        }
+
+        /**
+         * 4. MOLECULE STORAGE
+         */
+        const atoms = [];
+        const bonds = [];
+
+        function addAtom(type, color, position) {
+            const atom = new Atom(type, color, position);
+            atoms.push(atom);
+            updateCounts();
+            return atom;
+        }
+
+        function removeAtom(atom) {
+            const index = atoms.indexOf(atom);
+            if (index > -1) {
+                // Remove all bonds connected to this atom
+                atom.bonds.forEach(bond => {
+                    const bondIndex = bonds.indexOf(bond);
+                    if (bondIndex > -1) {
+                        bonds.splice(bondIndex, 1);
+                    }
+                });
+                atom.remove();
+                atoms.splice(index, 1);
+                updateCounts();
+            }
+        }
+
+        function createBond(atom1, atom2) {
+            // Check if bond already exists
+            const exists = bonds.some(bond => 
+                (bond.atom1 === atom1 && bond.atom2 === atom2) ||
+                (bond.atom1 === atom2 && bond.atom2 === atom1)
+            );
+            
+            if (!exists && atom1 !== atom2) {
+                const bond = new Bond(atom1, atom2);
+                bonds.push(bond);
+                updateCounts();
+            }
+        }
+
+        function getNearestAtom(position, maxDistance = 2) {
+            let nearest = null;
+            let minDist = maxDistance;
+            
+            atoms.forEach(atom => {
+                const dist = atom.position.distanceTo(position);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = atom;
+                }
+            });
+            
+            return nearest;
+        }
+
+        function updateCounts() {
+            atomCountDisplay.textContent = atoms.length;
+            bondCountDisplay.textContent = bonds.length;
+        }
+
+        /**
+         * 5. HAND TRACKING
+         */
+        const videoElement = document.getElementById('input-video');
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Hand position smoothing
+                const rawHandX = (0.5 - landmarks[8].x) * 20;
+                const rawHandY = (0.5 - landmarks[8].y) * 15;
+                smoothedHandX = smoothedHandX * 0.65 + rawHandX * 0.35;
+                smoothedHandY = smoothedHandY * 0.65 + rawHandY * 0.35;
+                handX = smoothedHandX;
+                handY = smoothedHandY;
+                handZ = landmarks[8].z * 10;
+
+                // Improved fist detection (delete)
+                const palmCenter = landmarks[9];
+                const fingersToCheck = [8, 12, 16, 20];
+                const fingerDistances = fingersToCheck.map(tip => 
+                    Math.sqrt(Math.pow(landmarks[tip].x - palmCenter.x, 2) + Math.pow(landmarks[tip].y - palmCenter.y, 2))
+                );
+                const avgFingerDist = fingerDistances.reduce((a, b) => a + b) / 4;
+                const fistDetected = avgFingerDist < 0.12;
+                gestureStability.fist = fistDetected ? Math.min(gestureStability.fist + 1, 5) : Math.max(gestureStability.fist - 1, 0);
+                const wasFist = isFist;
+                isFist = gestureStability.fist >= 3;
+                
+                if (isFist && !wasFist && Date.now() - lastGestureTime > 500) {
+                    const handPos = new THREE.Vector3(handX, handY, handZ);
+                    const nearest = getNearestAtom(handPos, 3);
+                    if (nearest) {
+                        removeAtom(nearest);
+                        lastGestureTime = Date.now();
+                    }
+                }
+
+                // Peace sign detection (clear)
+                const palm = landmarks[9];
+                const indexExtended = landmarks[8].y < palm.y - 0.05;
+                const middleExtended = landmarks[12].y < palm.y - 0.05;
+                const ringFolded = landmarks[16].y > palm.y - 0.02;
+                const pinkyFolded = landmarks[20].y > palm.y - 0.02;
+                const fingerSpacing = Math.sqrt(
+                    Math.pow(landmarks[8].x - landmarks[12].x, 2) + 
+                    Math.pow(landmarks[8].y - landmarks[12].y, 2)
+                );
+                
+                const wasPeace = isPeace;
+                isPeace = indexExtended && middleExtended && ringFolded && pinkyFolded && fingerSpacing > 0.03 && !isFist;
+                
+                if (isPeace && !wasPeace && Date.now() - lastGestureTime > 1500) {
+                    clearAll();
+                    lastGestureTime = Date.now();
+                }
+
+                // Pinch detection (bond creation)
+                const pinchDist = Math.sqrt(
+                    Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
+                    Math.pow(landmarks[4].y - landmarks[8].y, 2)
+                );
+                const wasPinch = isPinch;
+                isPinch = pinchDist < 0.05;
+                
+                if (isPinch && !wasPinch) {
+                    bondingMode = true;
+                    const handPos = new THREE.Vector3(handX, handY, handZ);
+                    const nearest = getNearestAtom(handPos, 3);
+                    if (nearest) {
+                        if (lastAtom && lastAtom !== nearest) {
+                            createBond(lastAtom, nearest);
+                            lastAtom = null;
+                        } else {
+                            lastAtom = nearest;
+                        }
+                    }
+                    lastGestureTime = Date.now();
+                } else if (!isPinch && wasPinch) {
+                    bondingMode = false;
+                }
+
+                // Open palm (place atom)
+                const wasOpen = !isFist && !isPeace && !isPinch;
+                if (wasOpen && Date.now() - lastGestureTime > 300) {
+                    // Check if hand moved significantly
+                    const movement = Math.abs(landmarks[8].x - (landmarks[8].x || 0));
+                    if (movement < 0.01) { // Hand is steady
+                        const position = new THREE.Vector3(handX, handY, handZ);
+                        const nearest = getNearestAtom(position, 1);
+                        if (!nearest) { // Don't place if too close to existing atom
+                            addAtom(selectedAtomType, selectedAtomColor, position);
+                            lastGestureTime = Date.now();
+                        }
+                    }
+                }
+                
+                updateGestureIndicator();
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        /**
+         * 6. MOLECULE TEMPLATES
+         */
+        function buildWater() {
+            clearAll();
+            const o = addAtom('O', 0xff0d0d, new THREE.Vector3(0, 0, 0));
+            const h1 = addAtom('H', 0xffffff, new THREE.Vector3(-1.2, 0.8, 0));
+            const h2 = addAtom('H', 0xffffff, new THREE.Vector3(1.2, 0.8, 0));
+            createBond(o, h1);
+            createBond(o, h2);
+        }
+
+        function buildCO2() {
+            clearAll();
+            const c = addAtom('C', 0x909090, new THREE.Vector3(0, 0, 0));
+            const o1 = addAtom('O', 0xff0d0d, new THREE.Vector3(-2, 0, 0));
+            const o2 = addAtom('O', 0xff0d0d, new THREE.Vector3(2, 0, 0));
+            createBond(c, o1);
+            createBond(c, o2);
+        }
+
+        function buildMethane() {
+            clearAll();
+            const c = addAtom('C', 0x909090, new THREE.Vector3(0, 0, 0));
+            const h1 = addAtom('H', 0xffffff, new THREE.Vector3(1, 1, 1));
+            const h2 = addAtom('H', 0xffffff, new THREE.Vector3(-1, 1, -1));
+            const h3 = addAtom('H', 0xffffff, new THREE.Vector3(1, -1, -1));
+            const h4 = addAtom('H', 0xffffff, new THREE.Vector3(-1, -1, 1));
+            createBond(c, h1);
+            createBond(c, h2);
+            createBond(c, h3);
+            createBond(c, h4);
+        }
+
+        function buildAmmonia() {
+            clearAll();
+            const n = addAtom('N', 0x3050f8, new THREE.Vector3(0, 0, 0));
+            const h1 = addAtom('H', 0xffffff, new THREE.Vector3(-1.2, 0.8, 0));
+            const h2 = addAtom('H', 0xffffff, new THREE.Vector3(1.2, 0.8, 0));
+            const h3 = addAtom('H', 0xffffff, new THREE.Vector3(0, -0.8, 1.2));
+            createBond(n, h1);
+            createBond(n, h2);
+            createBond(n, h3);
+        }
+
+        function buildEthanol() {
+            clearAll();
+            const c1 = addAtom('C', 0x909090, new THREE.Vector3(-1.5, 0, 0));
+            const c2 = addAtom('C', 0x909090, new THREE.Vector3(0, 0, 0));
+            const o = addAtom('O', 0xff0d0d, new THREE.Vector3(1.5, 0, 0));
+            const h1 = addAtom('H', 0xffffff, new THREE.Vector3(-2, 1, 1));
+            const h2 = addAtom('H', 0xffffff, new THREE.Vector3(-2, -1, 1));
+            const h3 = addAtom('H', 0xffffff, new THREE.Vector3(-2, 0, -1.5));
+            const h4 = addAtom('H', 0xffffff, new THREE.Vector3(0, 1.2, 1));
+            const h5 = addAtom('H', 0xffffff, new THREE.Vector3(0, -1.2, 1));
+            const h6 = addAtom('H', 0xffffff, new THREE.Vector3(2.5, 0, 0));
+            createBond(c1, c2);
+            createBond(c2, o);
+            createBond(c1, h1);
+            createBond(c1, h2);
+            createBond(c1, h3);
+            createBond(c2, h4);
+            createBond(c2, h5);
+            createBond(o, h6);
+        }
+
+        function buildBenzene() {
+            clearAll();
+            const radius = 2;
+            const carbons = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                carbons.push(addAtom('C', 0x909090, new THREE.Vector3(x, 0, z)));
+            }
+            for (let i = 0; i < 6; i++) {
+                createBond(carbons[i], carbons[(i + 1) % 6]);
+                const angle = (i / 6) * Math.PI * 2;
+                const hx = Math.cos(angle) * (radius + 1);
+                const hz = Math.sin(angle) * (radius + 1);
+                const h = addAtom('H', 0xffffff, new THREE.Vector3(hx, 0, hz));
+                createBond(carbons[i], h);
+            }
+        }
+
+        /**
+         * 7. UI CONTROLS
+         */
+        document.querySelectorAll('.atom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.atom-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedAtomType = btn.dataset.atom;
+                selectedAtomColor = parseInt(btn.dataset.color);
+            });
+        });
+
+        function clearAll() {
+            while (atoms.length > 0) {
+                removeAtom(atoms[0]);
+            }
+            bonds.length = 0;
+            lastAtom = null;
+        }
+
+        function rotateView() {
+            autoRotate = !autoRotate;
+        }
+
+        function toggleLabels() {
+            showLabels = !showLabels;
+            atoms.forEach(atom => {
+                if (showLabels && !atom.label) {
+                    atom.createLabel();
+                } else if (!showLabels && atom.label) {
+                    scene.remove(atom.label);
+                    atom.label = null;
+                }
+            });
+        }
+
+        function updateGestureIndicator() {
+            if (isFist) {
+                gestureIcon.textContent = '✊';
+                gestureName.textContent = 'Delete Atom';
+            } else if (isPinch) {
+                gestureIcon.textContent = '🤏';
+                gestureName.textContent = bondingMode ? 'Select 2nd Atom' : 'Create Bond';
+            } else if (isPeace) {
+                gestureIcon.textContent = '✌️';
+                gestureName.textContent = 'Clear All';
+            } else {
+                gestureIcon.textContent = '👋';
+                gestureName.textContent = 'Place Atom';
+            }
+        }
+
+        /**
+         * 8. ANIMATION LOOP
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsDisplay.textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            // Auto-rotate scene
+            if (autoRotate) {
+                atoms.forEach(atom => {
+                    atom.mesh.rotation.y += 0.005;
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

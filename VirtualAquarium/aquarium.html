@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Aquarium - Hand Gesture Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: linear-gradient(180deg, #001a33 0%, #003d66 50%, #001a33 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { display: block; }
+        
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            pointer-events: none; 
+            max-width: 350px;
+            padding: 20px;
+        }
+        
+        #ui h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hint { 
+            font-size: 0.85em; 
+            opacity: 0.8; 
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        #stats {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 15px 20px;
+            pointer-events: all;
+        }
+        
+        .control-group {
+            margin-bottom: 10px;
+        }
+        
+        .control-group label {
+            display: block;
+            color: #ccc;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            cursor: pointer;
+            border: none;
+        }
+        
+        .value-display {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+        }
+        
+        /* Video Container */
+        #video-container { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transform: scaleX(-1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        
+        /* Gesture Indicator */
+        #gesture-indicator {
+            position: absolute;
+            bottom: 200px;
+            right: 20px;
+            padding: 15px 20px;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        #gesture-indicator .gesture-name {
+            font-size: 1em;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+        
+        #gesture-indicator .gesture-icon {
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui" class="glass">
+        <h1>🐠 Virtual Aquarium</h1>
+        <p class="hint">
+            👋 <strong>Open Palm:</strong> Fish Follow<br>
+            ✊ <strong>Fist:</strong> Fish Scatter<br>
+            ✌️ <strong>Peace:</strong> Add More Fish<br>
+            🤏 <strong>Pinch:</strong> Feed Fish<br>
+            👆 <strong>Move Hand:</strong> Guide Fish
+        </p>
+        <div id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Fish: <span id="fish-count">30</span></div>
+            <div>Bubbles: <span id="bubble-count">50</span></div>
+        </div>
+    </div>
+
+    <div id="control-panel" class="glass">
+        <div class="control-group">
+            <label>Fish Speed: <span class="value-display" id="speed-value">1.0</span>x</label>
+            <input type="range" id="speed-slider" min="0.5" max="3" step="0.1" value="1.0">
+        </div>
+        <button class="btn" onclick="addFish(5)">➕ Add Fish</button>
+        <button class="btn" onclick="removeFish(5)">➖ Remove Fish</button>
+        <button class="btn" onclick="spawnFood()">🍤 Feed</button>
+    </div>
+
+    <div id="gesture-indicator" class="glass">
+        <div class="gesture-icon" id="gesture-icon">👋</div>
+        <div class="gesture-name" id="gesture-name">Calm</div>
+    </div>
+
+    <div id="video-container">
+        <video id="input-video"></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        /**
+         * 1. CONFIGURATION & STATE
+         */
+        let fishSpeed = 1.0;
+        let handX = 0, handY = 0, handZ = 0;
+        let isFist = false, isPeace = false, isPinch = false;
+        let lastGestureTime = 0;
+        
+        // Gesture smoothing for better accuracy
+        let smoothedHandX = 0, smoothedHandY = 0;
+        let gestureStability = { fist: 0, peace: 0, pinch: 0 };
+        
+        // FPS tracking
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+
+        // UI Elements
+        const fpsDisplay = document.getElementById('fps');
+        const fishCountDisplay = document.getElementById('fish-count');
+        const bubbleCountDisplay = document.getElementById('bubble-count');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+
+        /**
+         * 2. THREE.JS SETUP
+         */
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x003d66, 10, 100);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 30);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x001a33, 1);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x4080ff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 10);
+        scene.add(directionalLight);
+
+        /**
+         * 3. ENVIRONMENT
+         */
+        
+        // Water particles (ambient effect)
+        const particleGeometry = new THREE.BufferGeometry();
+        const particleCount = 200;
+        const particlePositions = new Float32Array(particleCount * 3);
+        
+        for (let i = 0; i < particleCount; i++) {
+            particlePositions[i * 3] = (Math.random() - 0.5) * 100;
+            particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 50;
+            particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+        }
+        
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        const particleMaterial = new THREE.PointsMaterial({ 
+            color: 0x88ccff, 
+            size: 0.1, 
+            transparent: true, 
+            opacity: 0.3 
+        });
+        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        scene.add(particles);
+
+        // Seaweed
+        const seaweedGroup = new THREE.Group();
+        for (let i = 0; i < 15; i++) {
+            const seaweedGeometry = new THREE.CylinderGeometry(0.1, 0.15, 5 + Math.random() * 3, 8);
+            const seaweedMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x2d5016,
+                roughness: 0.8
+            });
+            const seaweed = new THREE.Mesh(seaweedGeometry, seaweedMaterial);
+            seaweed.position.set(
+                (Math.random() - 0.5) * 60,
+                -15 + seaweed.geometry.parameters.height / 2,
+                (Math.random() - 0.5) * 40
+            );
+            seaweed.userData.swayOffset = Math.random() * Math.PI * 2;
+            seaweedGroup.add(seaweed);
+        }
+        scene.add(seaweedGroup);
+
+        // Sand floor
+        const floorGeometry = new THREE.PlaneGeometry(100, 60);
+        const floorMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xc2b280,
+            roughness: 1
+        });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -15;
+        scene.add(floor);
+
+        /**
+         * 4. FISH CLASS
+         */
+        class Fish {
+            constructor() {
+                // Create fish body
+                const bodyGeometry = new THREE.ConeGeometry(0.3, 1.5, 8);
+                const colors = [0xff6b35, 0xf7931e, 0xfdc500, 0x00a8e8, 0xff69b4, 0x9b59b6];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.3,
+                    roughness: 0.5
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.rotation.z = Math.PI / 2;
+                
+                // Tail
+                const tailGeometry = new THREE.ConeGeometry(0.4, 0.8, 3);
+                const tailMaterial = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.3,
+                    roughness: 0.5
+                });
+                this.tail = new THREE.Mesh(tailGeometry, tailMaterial);
+                this.tail.rotation.z = Math.PI / 2;
+                this.tail.position.x = -1;
+                this.body.add(this.tail);
+
+                // Eyes
+                const eyeGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+                const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                this.eye1 = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                this.eye2 = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                this.eye1.position.set(0.5, 0.2, 0.15);
+                this.eye2.position.set(0.5, 0.2, -0.15);
+                this.body.add(this.eye1);
+                this.body.add(this.eye2);
+
+                // Random position
+                this.position = new THREE.Vector3(
+                    (Math.random() - 0.5) * 40,
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 30
+                );
+                this.body.position.copy(this.position);
+
+                // Movement properties
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.05,
+                    (Math.random() - 0.5) * 0.1
+                );
+                this.targetVelocity = this.velocity.clone();
+                this.tailSwing = 0;
+                this.scared = false;
+                this.followingFood = null;
+
+                scene.add(this.body);
+            }
+
+            update(handPos, isFist, isPinch, foodItems) {
+                // Check if following food
+                if (foodItems.length > 0 && !this.scared) {
+                    let nearestFood = null;
+                    let nearestDist = Infinity;
+                    
+                    foodItems.forEach(food => {
+                        const dist = this.position.distanceTo(food.position);
+                        if (dist < 10 && dist < nearestDist) {
+                            nearestFood = food;
+                            nearestDist = dist;
+                        }
+                    });
+
+                    if (nearestFood) {
+                        this.followingFood = nearestFood;
+                        const direction = new THREE.Vector3()
+                            .subVectors(nearestFood.position, this.position)
+                            .normalize()
+                            .multiplyScalar(0.15 * fishSpeed);
+                        this.targetVelocity.copy(direction);
+                    } else {
+                        this.followingFood = null;
+                    }
+                }
+
+                // Behavior based on gestures
+                if (isFist) {
+                    // Scatter away from hand
+                    this.scared = true;
+                    const direction = new THREE.Vector3()
+                        .subVectors(this.position, handPos)
+                        .normalize()
+                        .multiplyScalar(0.3 * fishSpeed);
+                    this.targetVelocity.copy(direction);
+                } else if (!this.followingFood) {
+                    this.scared = false;
+                    // Follow hand gently
+                    const distToHand = this.position.distanceTo(handPos);
+                    if (distToHand < 15) {
+                        const direction = new THREE.Vector3()
+                            .subVectors(handPos, this.position)
+                            .normalize()
+                            .multiplyScalar(0.05 * fishSpeed);
+                        this.targetVelocity.copy(direction);
+                    } else {
+                        // Random swimming
+                        if (Math.random() < 0.02) {
+                            this.targetVelocity.set(
+                                (Math.random() - 0.5) * 0.1 * fishSpeed,
+                                (Math.random() - 0.5) * 0.05 * fishSpeed,
+                                (Math.random() - 0.5) * 0.1 * fishSpeed
+                            );
+                        }
+                    }
+                }
+
+                // Smooth velocity transition
+                this.velocity.lerp(this.targetVelocity, 0.05);
+
+                // Update position
+                this.position.add(this.velocity);
+
+                // Boundary check
+                if (Math.abs(this.position.x) > 30) {
+                    this.position.x = Math.sign(this.position.x) * 30;
+                    this.velocity.x *= -1;
+                }
+                if (this.position.y > 12) {
+                    this.position.y = 12;
+                    this.velocity.y *= -1;
+                }
+                if (this.position.y < -12) {
+                    this.position.y = -12;
+                    this.velocity.y *= -1;
+                }
+                if (Math.abs(this.position.z) > 20) {
+                    this.position.z = Math.sign(this.position.z) * 20;
+                    this.velocity.z *= -1;
+                }
+
+                // Update mesh
+                this.body.position.copy(this.position);
+
+                // Rotate to face direction
+                if (this.velocity.length() > 0.01) {
+                    const angle = Math.atan2(this.velocity.y, this.velocity.x);
+                    this.body.rotation.z = angle;
+                    this.body.rotation.y = Math.atan2(this.velocity.z, 
+                        Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2));
+                }
+
+                // Tail animation
+                this.tailSwing += 0.2 * fishSpeed;
+                this.tail.rotation.y = Math.sin(this.tailSwing) * 0.3;
+            }
+
+            remove() {
+                scene.remove(this.body);
+            }
+        }
+
+        /**
+         * 5. BUBBLES
+         */
+        class Bubble {
+            constructor() {
+                const geometry = new THREE.SphereGeometry(0.1 + Math.random() * 0.2, 16, 16);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: 0xaaddff,
+                    transparent: true,
+                    opacity: 0.3,
+                    metalness: 0.1,
+                    roughness: 0.1
+                });
+                this.mesh = new THREE.Mesh(geometry, material);
+                
+                this.position = new THREE.Vector3(
+                    (Math.random() - 0.5) * 50,
+                    -15,
+                    (Math.random() - 0.5) * 40
+                );
+                this.mesh.position.copy(this.position);
+                this.speed = 0.02 + Math.random() * 0.03;
+                this.wobble = Math.random() * Math.PI * 2;
+                
+                scene.add(this.mesh);
+            }
+
+            update() {
+                this.position.y += this.speed;
+                this.wobble += 0.05;
+                this.position.x += Math.sin(this.wobble) * 0.02;
+                this.position.z += Math.cos(this.wobble) * 0.02;
+                
+                if (this.position.y > 15) {
+                    this.position.y = -15;
+                    this.position.x = (Math.random() - 0.5) * 50;
+                    this.position.z = (Math.random() - 0.5) * 40;
+                }
+                
+                this.mesh.position.copy(this.position);
+            }
+
+            remove() {
+                scene.remove(this.mesh);
+            }
+        }
+
+        /**
+         * 6. FOOD
+         */
+        class FoodPellet {
+            constructor(x, y, z) {
+                const geometry = new THREE.SphereGeometry(0.15, 16, 16);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: 0xff6347,
+                    emissive: 0xff6347,
+                    emissiveIntensity: 0.3
+                });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.position = new THREE.Vector3(x, y, z);
+                this.mesh.position.copy(this.position);
+                this.velocity = new THREE.Vector3(0, -0.05, 0);
+                this.eaten = false;
+                this.lifetime = 0;
+                
+                scene.add(this.mesh);
+            }
+
+            update(fishes) {
+                this.lifetime++;
+                this.position.add(this.velocity);
+                this.mesh.position.copy(this.position);
+
+                // Check if eaten
+                fishes.forEach(fish => {
+                    if (fish.position.distanceTo(this.position) < 0.5) {
+                        this.eaten = true;
+                    }
+                });
+
+                // Remove if on floor or old
+                if (this.position.y < -14 || this.lifetime > 1000) {
+                    this.eaten = true;
+                }
+            }
+
+            remove() {
+                scene.remove(this.mesh);
+            }
+        }
+
+        /**
+         * 7. INITIALIZE SCENE
+         */
+        const fishes = [];
+        const bubbles = [];
+        const foodItems = [];
+
+        // Create initial fish
+        for (let i = 0; i < 30; i++) {
+            fishes.push(new Fish());
+        }
+
+        // Create bubbles
+        for (let i = 0; i < 50; i++) {
+            bubbles.push(new Bubble());
+        }
+
+        /**
+         * 8. HAND TRACKING
+         */
+        const videoElement = document.getElementById('input-video');
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Hand position smoothing
+                const rawHandX = (0.5 - landmarks[8].x) * 50;
+                const rawHandY = (0.5 - landmarks[8].y) * 30;
+                smoothedHandX = smoothedHandX * 0.65 + rawHandX * 0.35;
+                smoothedHandY = smoothedHandY * 0.65 + rawHandY * 0.35;
+                handX = smoothedHandX;
+                handY = smoothedHandY;
+                handZ = landmarks[8].z * 20;
+
+                // Improved fist detection
+                const palmCenter = landmarks[9];
+                const fingersToCheck = [8, 12, 16, 20];
+                const fingerDistances = fingersToCheck.map(tip => 
+                    Math.sqrt(Math.pow(landmarks[tip].x - palmCenter.x, 2) + Math.pow(landmarks[tip].y - palmCenter.y, 2))
+                );
+                const avgFingerDist = fingerDistances.reduce((a, b) => a + b) / 4;
+                const fistDetected = avgFingerDist < 0.12;
+                gestureStability.fist = fistDetected ? Math.min(gestureStability.fist + 1, 5) : Math.max(gestureStability.fist - 1, 0);
+                isFist = gestureStability.fist >= 3;
+
+                // Peace sign detection
+                const palm = landmarks[9];
+                const indexExtended = landmarks[8].y < palm.y - 0.05;
+                const middleExtended = landmarks[12].y < palm.y - 0.05;
+                const ringFolded = landmarks[16].y > palm.y - 0.02;
+                const pinkyFolded = landmarks[20].y > palm.y - 0.02;
+                const fingerSpacing = Math.sqrt(
+                    Math.pow(landmarks[8].x - landmarks[12].x, 2) + 
+                    Math.pow(landmarks[8].y - landmarks[12].y, 2)
+                );
+                
+                isPeace = indexExtended && middleExtended && ringFolded && pinkyFolded && fingerSpacing > 0.03 && !isFist;
+                
+                if (isPeace && Date.now() - lastGestureTime > 1500) {
+                    addFish(3);
+                    lastGestureTime = Date.now();
+                }
+
+                // Pinch detection
+                const pinchDist = Math.sqrt(
+                    Math.pow(landmarks[4].x - landmarks[8].x, 2) + 
+                    Math.pow(landmarks[4].y - landmarks[8].y, 2)
+                );
+                isPinch = pinchDist < 0.05;
+                
+                if (isPinch && Date.now() - lastGestureTime > 500) {
+                    spawnFood();
+                    lastGestureTime = Date.now();
+                }
+                
+                updateGestureIndicator();
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        /**
+         * 9. HELPER FUNCTIONS
+         */
+        function addFish(count) {
+            for (let i = 0; i < count; i++) {
+                fishes.push(new Fish());
+            }
+            fishCountDisplay.textContent = fishes.length;
+        }
+
+        function removeFish(count) {
+            for (let i = 0; i < count && fishes.length > 0; i++) {
+                const fish = fishes.pop();
+                fish.remove();
+            }
+            fishCountDisplay.textContent = fishes.length;
+        }
+
+        function spawnFood() {
+            const food = new FoodPellet(handX, handY, handZ);
+            foodItems.push(food);
+        }
+
+        function updateGestureIndicator() {
+            if (isFist) {
+                gestureIcon.textContent = '✊';
+                gestureName.textContent = 'Scaring Fish';
+            } else if (isPinch) {
+                gestureIcon.textContent = '🤏';
+                gestureName.textContent = 'Feeding';
+            } else if (isPeace) {
+                gestureIcon.textContent = '✌️';
+                gestureName.textContent = 'Adding Fish';
+            } else {
+                gestureIcon.textContent = '👋';
+                gestureName.textContent = 'Calm';
+            }
+        }
+
+        /**
+         * 10. ANIMATION LOOP
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                fpsDisplay.textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+            }
+
+            const handPos = new THREE.Vector3(handX, handY, handZ);
+
+            // Update fish
+            fishes.forEach(fish => {
+                fish.update(handPos, isFist, isPinch, foodItems);
+            });
+
+            // Update bubbles
+            bubbles.forEach(bubble => {
+                bubble.update();
+            });
+
+            // Update food
+            for (let i = foodItems.length - 1; i >= 0; i--) {
+                foodItems[i].update(fishes);
+                if (foodItems[i].eaten) {
+                    foodItems[i].remove();
+                    foodItems.splice(i, 1);
+                }
+            }
+
+            // Animate seaweed sway
+            seaweedGroup.children.forEach(seaweed => {
+                seaweed.rotation.z = Math.sin(Date.now() * 0.001 + seaweed.userData.swayOffset) * 0.1;
+            });
+
+            // Animate water particles
+            const positions = particles.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3 + 1] += 0.01;
+                if (positions[i * 3 + 1] > 25) {
+                    positions[i * 3 + 1] = -25;
+                }
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        /**
+         * 11. UI CONTROLS
+         */
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            fishSpeed = parseFloat(e.target.value);
+            document.getElementById('speed-value').textContent = fishSpeed.toFixed(1);
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
