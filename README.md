@@ -211,8 +211,6 @@ python -m http.server 8000
 ```
 Then open `http://localhost:8000` in your browser.
 
-**See [CAMERA_TROUBLESHOOTING.md](CAMERA_TROUBLESHOOTING.md) for detailed solutions.**
-
 ---
 
 ## 🎯 Universal Gesture Guide
